@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger — 区块链与数字资产交易 · 系统性学习</title>
+<meta name="description" content="从密码学原语到共识机制，从现金流入路径到 7×24 撮合引擎，从期权定价到杠杆清算——一套完整的区块链与虚拟币交易平台知识体系。">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/home.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<!-- ==================== 导航 ==================== -->
+<nav class="nav">
+  <div class="nav-in">
+    <a href="index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/>
+          <rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt">
+        <span class="brand-en">Ledger</span>
+        <span class="brand-cn">链上账本</span>
+      </span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="active">首页</a>
+      <a href="pages/foundation.html">区块链原理</a>
+      <a href="pages/evolution.html">演进与共识</a>
+      <a href="pages/cashflow.html">资金流路径</a>
+      <a href="pages/trading.html">交易与撮合</a>
+      <a href="pages/derivatives.html">期权与杠杆</a>
+      <a href="pages/build.html">平台开发</a>
+      <a href="pages/glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<!-- ==================== Hero ==================== -->
+<header class="hero">
+  <div class="hero-bg">
+    <img src="assets/img/hero-exchange.jpg" alt="数字货币行情屏">
+  </div>
+  <div class="hero-grid-lines"></div>
+  <div class="wrap">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      <span>Six Chapters · 完整知识体系</span>
+    </div>
+    <h1 class="display">The Ledger<br><em>of Value</em></h1>
+    <p class="hero-sub cn-serif">价值的账本 · 区块链与数字资产交易</p>
+    <p class="hero-lead">
+      从一次哈希计算，到一条 7×24 小时不间断的全球撮合网络；从法币如何一步步变成链上的一个私钥，
+      到百倍杠杆在 0.7% 的反向波动中如何归零。这套课程不绕弯子，把区块链的原理、货币的流动路径、
+      交易的实现机制、衍生品的定价与风险，以及搭建一个交易平台需要掌握的工程全貌，一次讲透。
+    </p>
+    <div class="hero-actions">
+      <a href="pages/foundation.html" class="btn">
+        开始第一课
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="pages/trading.html" class="btn ghost">直接看交易机制</a>
+    </div>
+    <div class="hero-stats">
+      <div><span class="n">6</span><span class="l">章节</span></div>
+      <div><span class="n">40+</span><span class="l">知识模块</span></div>
+      <div><span class="n">5</span><span class="l">交互演示</span></div>
+      <div><span class="n">7×24</span><span class="l">永不闭市</span></div>
+    </div>
+  </div>
+  <div class="hero-scroll">
+    <span>Scroll</span>
+    <span class="bar"></span>
+  </div>
+</header>
+
+<!-- ==================== 跑马灯 ==================== -->
+<div class="ticker">
+  <div class="ticker-track">
+    <div class="tick"><span class="s">BTC/USDT</span><span class="p">67,420.50</span><span class="c up">+2.41%</span></div>
+    <div class="tick"><span class="s">ETH/USDT</span><span class="p">3,486.12</span><span class="c up">+1.87%</span></div>
+    <div class="tick"><span class="s">SOL/USDT</span><span class="p">172.84</span><span class="c down">-3.12%</span></div>
+    <div class="tick"><span class="s">BNB/USDT</span><span class="p">598.30</span><span class="c up">+0.64%</span></div>
+    <div class="tick"><span class="s">XRP/USDT</span><span class="p">0.5218</span><span class="c down">-1.05%</span></div>
+    <div class="tick"><span class="s">ADA/USDT</span><span class="p">0.4472</span><span class="c up">+0.92%</span></div>
+    <div class="tick"><span class="s">DOGE/USDT</span><span class="p">0.1634</span><span class="c down">-2.28%</span></div>
+    <div class="tick"><span class="s">AVAX/USDT</span><span class="p">36.71</span><span class="c up">+4.15%</span></div>
+    <!-- 复制一份实现无缝滚动 -->
+    <div class="tick"><span class="s">BTC/USDT</span><span class="p">67,420.50</span><span class="c up">+2.41%</span></div>
+    <div class="tick"><span class="s">ETH/USDT</span><span class="p">3,486.12</span><span class="c up">+1.87%</span></div>
+    <div class="tick"><span class="s">SOL/USDT</span><span class="p">172.84</span><span class="c down">-3.12%</span></div>
+    <div class="tick"><span class="s">BNB/USDT</span><span class="p">598.30</span><span class="c up">+0.64%</span></div>
+    <div class="tick"><span class="s">XRP/USDT</span><span class="p">0.5218</span><span class="c down">-1.05%</span></div>
+    <div class="tick"><span class="s">ADA/USDT</span><span class="p">0.4472</span><span class="c up">+0.92%</span></div>
+    <div class="tick"><span class="s">DOGE/USDT</span><span class="p">0.1634</span><span class="c down">-2.28%</span></div>
+    <div class="tick"><span class="s">AVAX/USDT</span><span class="p">36.71</span><span class="c up">+4.15%</span></div>
+  </div>
+</div>
+
+<!-- ==================== 六大板块 ==================== -->
+<section id="chapters">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-num">CHAPTERS</span>
+      <h2>六个递进的章节，<span class="cn">从原理走到工程</span></h2>
+      <p>顺序阅读是一次完整的学习路径；也可以跳到任一章，每一页都是自洽的。</p>
+    </div>
+
+    <div class="path-grid reveal">
+      <a class="path" href="pages/foundation.html">
+        <div class="path-n">I</div>
+        <h3>区块链原理</h3>
+        <div class="en">Foundation</div>
+        <p>哈希、非对称加密、数字签名、Merkle 树、UTXO 与账户模型。区块链不是「一种技术」，而是几种密码学原语的组合方式。</p>
+        <div class="cnt">8 个模块 · 含哈希链交互演示 →</div>
+      </a>
+      <a class="path" href="pages/evolution.html">
+        <div class="path-n">II</div>
+        <h3>形成与共识演进</h3>
+        <div class="en">Evolution</div>
+        <p>从工作量证明到权益证明，从比特币到智能合约。区块如何被打包、分叉如何收敛、51% 攻击为什么在数学上不划算。</p>
+        <div class="cnt">7 个模块 · 含共识对比矩阵 →</div>
+      </a>
+      <a class="path" href="pages/cashflow.html">
+        <div class="path-n">III</div>
+        <h3>资金流路径</h3>
+        <div class="en">Cash Flow</div>
+        <p>真正的钱是怎么进来的：法币入金 → 稳定币铸造 → 现货成交 → 衍生品保证金。每一层的钱来自哪、去向哪、谁在收手续费。</p>
+        <div class="cnt">6 个模块 · 含资金流模拟器 →</div>
+      </a>
+      <a class="path" href="pages/trading.html">
+        <div class="path-n">IV</div>
+        <h3>交易与撮合</h3>
+        <div class="en">Trading</div>
+        <p>订单簿如何运作、撮合引擎如何做到微秒级延迟、为什么可以 7×24 永不闭市、清算与结算在链上链下如何分工。</p>
+        <div class="cnt">7 个模块 · 含撮合引擎演示 →</div>
+      </a>
+      <a class="path" href="pages/derivatives.html">
+        <div class="path-n">V</div>
+        <h3>期权与杠杆</h3>
+        <div class="en">Derivatives</div>
+        <p>永续合约的资金费率、逐仓与全仓、强平引擎的触发逻辑、期权希腊字母与隐含波动率。杠杆放大的是收益，也等比放大爆仓概率。</p>
+        <div class="cnt">8 个模块 · 含爆仓计算器 →</div>
+      </a>
+      <a class="path" href="pages/build.html">
+        <div class="path-n">VI</div>
+        <h3>平台开发全貌</h3>
+        <div class="en">Engineering</div>
+        <p>要做一个交易平台需要掌握什么：账务系统与复式记账、撮合内核、行情推送、风控与清算、钱包与冷热分离、合规牌照。</p>
+        <div class="cnt">9 个模块 · 含技术栈全景 →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-gold">
+
+<!-- ==================== 章节详情（图文） ==================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-num">OVERVIEW</span>
+      <h2>你会在每一章里看到什么</h2>
+    </div>
+
+    <div class="grid g2 reveal" style="gap:26px">
+      <div>
+        <figure style="margin-top:0">
+          <div class="ratio r-3-2"><img src="assets/img/btc-macro.jpg" alt="比特币实物示意"></div>
+          <figcaption><b>第一章 · 原理</b> —— 为什么说「区块链」的本质是一串互相咬合的哈希。我们会用一个可交互的哈希链演示，让你亲手改一笔交易，看整条链如何立刻断裂。</figcaption>
+        </figure>
+        <figure>
+          <div class="ratio r-16-9"><img src="assets/img/code-screen.jpg" alt="智能合约代码"></div>
+          <figcaption><b>第二章 · 共识</b> —— PoW 与 PoS 的取舍不在「谁更环保」，而在安全假设、去中心化程度与最终性时间三者的权衡。</figcaption>
+        </figure>
+      </div>
+      <div>
+        <figure style="margin-top:0">
+          <div class="ratio r-16-9"><img src="assets/img/exchange-desk.jpg" alt="交易终端"></div>
+          <figcaption><b>第三章 · 资金流</b> —— 一条完整的资金链路：你的 10 万元人民币，经过银行通道、稳定币发行方、做市商、永续合约保证金账户，最后变成了一个链上私钥能控制的头寸。</figcaption>
+        </figure>
+        <figure>
+          <div class="ratio r-3-2"><img src="assets/img/chart-candle.jpg" alt="K线图"></div>
+          <figcaption><b>第四·五章 · 交易与衍生品</b> —— 订单簿、撮合优先级、资金费率、强平引擎。所有机制最终都指向同一个问题：价格由谁、在什么约束下决定。</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-gold">
+
+<!-- ==================== 交互演示预览 ==================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-num">INTERACTIVE</span>
+      <h2>五个可以动手的演示</h2>
+      <p>看懂一个机制最快的方式，是把它拆开、改一个参数、观察结果。</p>
+    </div>
+
+    <div class="grid g3 reveal">
+      <div class="card gold-top">
+        <span class="tag gold">演示 01</span>
+        <h3 style="margin-top:16px">哈希链篡改</h3>
+        <p>修改区块 #1 的交易内容，看它的哈希如何变化，以及为什么区块 #2 会立即检测到不一致。</p>
+        <div style="margin-top:20px"><a href="pages/foundation.html#chain" class="btn ghost" style="padding:9px 18px;font-size:13px">在第一章打开</a></div>
+      </div>
+      <div class="card gold-top">
+        <span class="tag gold">演示 02</span>
+        <h3 style="margin-top:16px">订单簿撮合</h3>
+        <p>推送一笔市价买单，观察它如何按价格优先、时间优先的顺序逐层吃掉卖盘，以及成交后价格的微移。</p>
+        <div style="margin-top:20px"><a href="pages/trading.html#match" class="btn ghost" style="padding:9px 18px;font-size:13px">在第四章打开</a></div>
+      </div>
+      <div class="card gold-top">
+        <span class="tag gold">演示 03</span>
+        <h3 style="margin-top:16px">杠杆爆仓计算器</h3>
+        <p>调整杠杆倍数与价格波动，实时看到保证金收益率、强平价与清算进度。100 倍杠杆下，反向 0.7% 就是终点。</p>
+        <div style="margin-top:20px"><a href="pages/derivatives.html#lev" class="btn ghost" style="padding:9px 18px;font-size:13px">在第五章打开</a></div>
+      </div>
+      <div class="card gold-top">
+        <span class="tag gold">演示 04</span>
+        <h3 style="margin-top:16px">资金流模拟器</h3>
+        <p>拖动滑块设定入金金额，看这笔钱在六个环节里的留存与折损，理解手续费和价差究竟从哪里被抽走。</p>
+        <div style="margin-top:20px"><a href="pages/cashflow.html#flow" class="btn ghost" style="padding:9px 18px;font-size:13px">在第三章打开</a></div>
+      </div>
+      <div class="card gold-top">
+        <span class="tag gold">演示 05</span>
+        <h3 style="margin-top:16px">K 线图生成器</h3>
+        <p>切换牛市、熊市、震荡三种行情形态，配合量能柱，理解价格结构如何被记录与解读。</p>
+        <div style="margin-top:20px"><a href="pages/trading.html#chart" class="btn ghost" style="padding:9px 18px;font-size:13px">在第四章打开</a></div>
+      </div>
+      <div class="card gold-top">
+        <span class="tag gold">速查</span>
+        <h3 style="margin-top:16px">术语表</h3>
+        <p>从 AMM 到 zk-SNARK，60 余条区块链与交易领域的核心术语，按字母与主题双索引编排。</p>
+        <div style="margin-top:20px"><a href="pages/glossary.html" class="btn ghost" style="padding:9px 18px;font-size:13px">打开术语表</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-gold">
+
+<!-- ==================== 阅读路径 ==================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-num">READING PATH</span>
+      <h2>三种读法</h2>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-n"></div>
+        <div>
+          <h4>零基础顺序读</h4>
+          <p>嫌原理枯燥？直接跳到<a href="pages/trading.html">第四章</a>看一张订单簿长什么样，再回头补<a href="pages/foundation.html">第一章</a>的密码学。由现象倒推原理，往往更快。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n"></div>
+        <div>
+          <h4>只想搞懂钱怎么走的</h4>
+          <p>读<a href="pages/cashflow.html">第三章 · 资金流路径</a>，然后跳到<a href="pages/derivatives.html#lev">第五章的爆仓计算器</a>。这两页回答的是大多数人的真实困惑。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n"></div>
+        <div>
+          <h4>要动手做产品</h4>
+          <p>从<a href="pages/build.html">第六章 · 平台开发</a>入手。里面有账务模型、撮合内核、风控清算与合规路径的完整梳理，以及一张技术栈全景图。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 重要提示 ==================== -->
+<section class="tight">
+  <div class="wrap-narrow">
+    <div class="callout danger reveal">
+      <div class="callout-t">风险提示</div>
+      <p>本站全部内容为技术原理与工程机制的教学讲解，不构成任何投资建议、不推荐任何具体币种或交易平台。虚拟货币价格波动极端、各国监管政策差异巨大，杠杆与衍生品交易可能导致本金全部损失。</p>
+      <p>站内所有行情、K 线、订单簿与账户数据均为前端生成的模拟数据，仅用于演示机制，与任何真实市场无关。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 页脚 ==================== -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a href="index.html" class="brand" style="margin-bottom:16px">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+              <rect x="3" y="7" width="7" height="10" rx="1"/>
+              <rect x="14" y="7" width="7" height="10" rx="1"/>
+              <path d="M10 12h4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="brand-txt">
+            <span class="brand-en">Ledger</span>
+            <span class="brand-cn">链上账本</span>
+          </span>
+        </a>
+        <p class="small" style="color:var(--fg-faint);max-width:300px">一套关于区块链原理、数字资产资金流动与交易平台工程实现的系统性教程。</p>
+      </div>
+      <div>
+        <h5>课程</h5>
+        <a href="pages/foundation.html">区块链原理</a>
+        <a href="pages/evolution.html">演进与共识</a>
+        <a href="pages/cashflow.html">资金流路径</a>
+      </div>
+      <div>
+        <h5>机制</h5>
+        <a href="pages/trading.html">交易与撮合</a>
+        <a href="pages/derivatives.html">期权与杠杆</a>
+        <a href="pages/build.html">平台开发</a>
+      </div>
+      <div>
+        <h5>工具</h5>
+        <a href="pages/glossary.html">术语表</a>
+        <a href="pages/foundation.html#chain">哈希链演示</a>
+        <a href="pages/derivatives.html#lev">爆仓计算器</a>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。所有数据均为模拟。</p>
+      <p>图片素材来源 Pexels，遵循其免费使用许可。</p>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/app.js"></script>
+</body>
+</html>

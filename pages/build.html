@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第六章 · 交易平台开发全貌 — Ledger</title>
+<meta name="description" content="从零搭建一个虚拟币交易平台需要掌握什么：账务系统、撮合内核、行情推送、风控清算、钱包托管、合规路径与技术栈全景。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html">区块链原理</a>
+      <a href="evolution.html">演进与共识</a>
+      <a href="cashflow.html">资金流路径</a>
+      <a href="trading.html">交易与撮合</a>
+      <a href="derivatives.html">期权与杠杆</a>
+      <a href="build.html" class="active">平台开发</a>
+      <a href="glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>第六章</div>
+    <span class="sec-num">CHAPTER VI</span>
+    <h1 class="display">Engineering</h1>
+    <p style="font-family:var(--serif-cn);font-size:clamp(24px,3.4vw,34px);color:var(--fg);margin-top:2px;font-weight:300">平台开发全貌 —— 做一个交易平台需要掌握什么</p>
+    <p class="lead">
+      这是把前五章的知识落到工程上的一章。一个能承接真实资金的交易平台，本质上是一个
+      <b>要求极致一致性、极致性能、且必须具备金融级审计能力的分布式系统</b>。
+      这里梳理九大核心模块、技术选型、以及绕不开的合规门槛。
+    </p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:52px">
+  <div class="doc-layout">
+
+    <aside class="toc">
+      <div class="toc-t">本章目录</div>
+      <a href="#arch">01 · 系统总体架构</a>
+      <a href="#ledger">02 · 账务系统</a>
+      <a href="#engine">03 · 撮合内核</a>
+      <a href="#marketdata">04 · 行情与推送</a>
+      <a href="#risk">05 · 风控与清算</a>
+      <a href="#wallet">06 · 钱包与资金安全</a>
+      <a href="#stack">07 · 技术栈全景</a>
+      <a href="#nonfunc">08 · 非功能要求</a>
+      <a href="#comply">09 · 合规与牌照</a>
+      <a href="#roadmap">10 · 落地路线图</a>
+    </aside>
+
+    <main>
+
+      <!-- 01 -->
+      <section id="arch" style="padding-top:0">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2>系统总体架构</h2>
+          <p>先把全貌画出来。交易平台的复杂度不在单个模块，而在模块之间的数据一致性与延迟约束。</p>
+        </div>
+
+        <div class="hashlab">
+          <div class="hashlab-head"><h4>核心系统分层</h4></div>
+          <div class="hashlab-body">
+            <div class="steps" style="margin:0">
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>接入层 · Gateway</h4>
+                  <p>处理 WebSocket / REST / FIX 协议接入，负责鉴权、限流、连接管理、请求签名校验。<code>Go / Netty / Rust</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>业务层 · Order Service</h4>
+                  <p>订单校验（余额、杠杆、价格精度、风控规则）、订单状态机、与撮合引擎通信。<code>Go / Java</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>核心层 · Matching Engine</h4>
+                  <p>内存中的订单簿，单线程处理以保证确定性。这是整个系统对延迟最敏感的部分。<code>C++ / Rust / Java（无 GC 停顿）</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>账务层 · Ledger Service</h4>
+                  <p>复式记账，处理成交后的资金划转、手续费、盈亏结算。必须保证幂等与强一致。<code>Go / Java + 关系型数据库</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>风控层 · Risk Engine</h4>
+                  <p>实时保证金计算、强平触发、限额检查、异常交易检测。<code>Rust / C++ / Go</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>行情层 · Market Data</h4>
+                  <p>K 线聚合、深度快照、成交推送。高并发广播，允许最终一致。<code>Go / C++ + 消息队列</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>钱包层 · Custody</h4>
+                  <p>链上充提、地址管理、冷热钱包调度、多签审批。<code>Go / Python + HSM</code></p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-n"></div>
+                <div>
+                  <h4>数据层 · Storage</h4>
+                  <p>热数据内存 + 关系库持久化 + 时序库存行情 + 数据仓库做分析与对账。<code>PostgreSQL / Redis / ClickHouse</code></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:30px">
+          <div class="callout-t">一条关键的架构原则</div>
+          <p><b>慢的东西不能挡住快的东西。</b>撮合必须全内存、单线程、无外部依赖；持久化、通知、清算等操作通过事件流异步处理。一旦撮合路径上出现一次数据库写入或网络调用，延迟就从微秒变成毫秒 —— 在交易领域这是两个世界。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 02 账务 -->
+      <section id="ledger">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2>账务系统 <span class="cn">· 整个平台最不能出错的地方</span></h2>
+        </div>
+
+        <p class="lead">
+          行情延迟高一点，用户抱怨；撮合慢一点，体验变差；
+          <b>但账务出一次错，就是资金损失、信任崩塌、甚至法律问题。</b>这是唯一必须做到零误差的模块。
+        </p>
+
+        <h3 style="font-size:19px;margin:34px 0 18px">核心原则一 · 复式记账</h3>
+        <p style="color:var(--fg-muted)">
+          每一笔资金变动都要同时记录借方与贷方，<b>任何时刻「所有账户余额之和」必须恒等于零</b>（或恒等于已知的总量）。
+          这个约束提供了一个可自动校验的健全性检查 —— 任何 bug 或攻击都会立刻被对账发现。
+        </p>
+
+        <pre style="margin-top:22px">用户 A 用 1000 USDT 买入 0.015 BTC（手续费 1 USDT）
+
+借：用户A-现货-可用-USDT        1,000
+贷：用户A-现货-冻结-USDT        1,000
+借：用户A-现货-冻结-USDT        1,000
+贷：平台-交易对账-USDT          1,001
+贷：平台-手续费收入-USDT            1  ← 注意：这里要反着记
+...
+──────────────────────────────────────────
+最终结果：
+  用户A: -1,000 USDT  +0.015 BTC
+  对手方: +1,000 USDT  -0.015 BTC
+  平台:   +1 USDT（手续费）
+
+验证：所有科目变动之和 = 0  ✓</pre>
+
+        <h3 style="font-size:19px;margin:36px 0 18px">核心原则二 · 幂等性</h3>
+        <p style="color:var(--fg-muted)">
+          网络会重试，消息会重复投递。同一个「成交回报」可能被处理两次。<b>账务操作必须带唯一业务 ID，
+          重复执行时结果与执行一次完全相同</b>，而不是扣两次钱。
+        </p>
+        <pre style="margin-top:20px">-- 幂等键：trade_id + account_id + asset
+-- 唯一索引保证同一笔成交对同一账户只入账一次
+CREATE UNIQUE INDEX uk_ledger_idem
+  ON ledger_entries (trade_id, account_id, asset);
+
+-- 插入时若冲突则忽略，天然幂等
+INSERT INTO ledger_entries (...)
+VALUES (...)
+ON CONFLICT (trade_id, account_id, asset) DO NOTHING;</pre>
+
+        <h3 style="font-size:19px;margin:36px 0 18px">核心原则三 · 并发控制</h3>
+        <div class="grid g3">
+          <div class="card">
+            <h4 style="font-size:15.5px;margin-bottom:8px">行级锁</h4>
+            <p style="font-size:13.5px">对账户行加悲观锁，简单可靠，但高并发下容易争抢。</p>
+          </div>
+          <div class="card">
+            <h4 style="font-size:15.5px;margin-bottom:8px">乐观锁 + 版本号</h4>
+            <p style="font-size:13.5px">读取版本号，更新时校验。冲突则重试，适合读多写少。</p>
+          </div>
+          <div class="card">
+            <h4 style="font-size:15.5px;margin-bottom:8px">单线程串行化</h4>
+            <p style="font-size:13.5px">同账户的操作路由到同一分区串行处理，彻底消除竞态。</p>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:30px">
+          <div class="callout-t">绝对不要做的事</div>
+          <p>用浮点数存金额。<b>永远用整数（最小单位）或 DECIMAL。</b>浮点的舍入误差在累积几十亿笔交易后会变成真实资金缺口。
+          例如 <code>0.1 + 0.2 != 0.3</code> 在 IEEE 754 下是事实。BTC 用「聪」（1e-8），USDT 用 6 位小数整数。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 03 撮合引擎 -->
+      <section id="engine">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2>撮合内核 <span class="cn">· 整个系统的心脏</span></h2>
+        </div>
+
+        <p class="lead">
+          撮合引擎的职责是：接收订单、维护订单簿、按价格优先时间优先匹配、输出成交结果。
+          它的性能指标通常以<b>微秒</b>衡量，而它的正确性要求是<b>零容忍</b>。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:32px">
+          <table>
+            <thead><tr><th>设计要点</th><th>做法</th><th>原因</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>单线程处理</b></td>
+                <td>每个交易对一个线程，订单串行进入</td>
+                <td class="gold">避免锁竞争与竞态，保证结果确定性、可重放</td>
+              </tr>
+              <tr>
+                <td><b>全内存订单簿</b></td>
+                <td>价格档位用数组/跳表/红黑树维护</td>
+                <td class="gold">内存访问纳秒级，磁盘毫秒级，差 6 个数量级</td>
+              </tr>
+              <tr>
+                <td><b>避免动态分配</b></td>
+                <td>对象池预分配，避免运行时 GC/内存分配</td>
+                <td class="gold">GC 停顿会造成不可预测的延迟尖峰</td>
+              </tr>
+              <tr>
+                <td><b>无锁队列通信</b></td>
+                <td>订单通过环形缓冲区传入引擎</td>
+                <td class="gold">消除跨线程同步开销</td>
+              </tr>
+              <tr>
+                <td><b>CPU 亲和性绑定</b></td>
+                <td>引擎线程绑定独占核心，隔离中断</td>
+                <td class="gold">避免上下文切换与缓存失效</td>
+              </tr>
+              <tr>
+                <td><b>顺序日志 WAL</b></td>
+                <td>所有事件先写顺序日志再处理</td>
+                <td class="gold">崩溃后可精确恢复，用于审计与回放</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="font-size:19px;margin:36px 0 18px">核心数据结构</h3>
+        <pre>// 价格档位（Price Level）：同一价格上的所有订单按时间排队
+type PriceLevel struct {
+    Price      int64      // 用整数存储，避免浮点误差
+    TotalQty   int64      // 该档位总量，用于深度展示
+    Orders     *OrderList // FIFO 链表，保证时间优先
+}
+
+// 订单簿（OrderBook）：买单降序、卖单升序
+type OrderBook struct {
+    Bids    []*PriceLevel  // 买盘，价格由高到低
+    Asks    []*PriceLevel  // 卖盘，价格由低到高
+    BestBid *PriceLevel
+    BestAsk *PriceLevel
+}
+
+// 撮合主循环（简化）
+func (ob *OrderBook) Match(taker *Order) []Trade {
+    var trades []Trade
+    for taker.Remaining > 0 {
+        var maker *Order
+        if taker.Side == BUY {
+            if ob.BestAsk == nil || taker.Price < ob.BestAsk.Price {
+                break   // 无法成交，转为挂单
+            }
+            maker = ob.BestAsk.Orders.Front()
+        } else {
+            if ob.BestBid == nil || taker.Price > ob.BestBid.Price {
+                break
+            }
+            maker = ob.BestBid.Orders.Front()
+        }
+        qty := min(taker.Remaining, maker.Remaining)
+        trades = append(trades, Trade{Maker: maker, Taker: taker, Qty: qty})
+        // 更新双方剩余量，若 maker 成交完则出队
+    }
+    return trades
+}</pre>
+
+        <div class="callout" style="margin-top:30px">
+          <div class="callout-t">确定性是关键要求</div>
+          <p>给定相同的输入序列，撮合引擎必须<b>永远产出相同的结果</b>。这不仅是正确性问题 ——
+          它是「可回放」的前提：崩溃后用日志重放，能精确恢复到故障前一刻的状态，不会产生重复成交或丢失成交。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 04 行情 -->
+      <section id="marketdata">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2>行情与推送 <span class="cn">· 把变化送到几十万人面前</span></h2>
+        </div>
+
+        <div class="two-col" style="margin-top:32px">
+          <div>
+            <h3 style="font-size:18px;margin-bottom:16px">数据的四个层次</h3>
+            <ul class="list-clean">
+              <li><strong>Ticker 摘要</strong> · 最新价、24 小时涨跌、成交量。更新频率低，全量广播</li>
+              <li><strong>深度 Depth</strong> · 订单簿快照 + 增量更新。可用「快照 + 增量」模式大幅降低带宽</li>
+              <li><strong>成交 Trades</strong> · 每一笔撮合结果，实时推送</li>
+              <li><strong>K 线 Candles</strong> · 按周期聚合，通常由成交数据离线或流式合成</li>
+            </ul>
+          </div>
+          <div>
+            <h3 style="font-size:18px;margin-bottom:16px">推送技术</h3>
+            <ul class="list-clean">
+              <li><strong>WebSocket</strong> · 主流方案，双向长连接，服务端主动推送</li>
+              <li><strong>增量更新</strong> · 只推送变化的价格档位，而非整本订单簿</li>
+              <li><strong>序列号机制</strong> · 每个消息带序号，客户端检测丢包并请求补发</li>
+              <li><strong>分级订阅</strong> · 用户可选 100 档或 400 档深度，按需推送降低负载</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:28px">
+          <div class="callout-t">「快照 + 增量」是标准做法</div>
+          <p>先推送一份完整的订单簿快照（带序列号 N），之后只发变化的部分（N+1, N+2…）。
+          客户端本地维护订单簿副本。这样既保证了一致性（序列号连续可校验），又把带宽压到最低。若检测到序列号跳跃，客户端重新拉取快照。</p>
+        </div>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-16-9"><img src="../assets/img/exchange-desk.jpg" alt="交易终端界面"></div>
+          <figcaption>用户看到的每一帧跳动，背后都是撮合事件 → 消息队列 → 行情服务 → WebSocket 广播这条链路在毫秒内完成的过程。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 05 风控 -->
+      <section id="risk">
+        <div class="sec-head">
+          <span class="sec-num">05</span>
+          <h2>风控与清算</h2>
+        </div>
+
+        <div class="grid g2" style="margin-top:32px">
+          <div class="card gold-top">
+            <h3>事前风控</h3>
+            <ul class="list-clean" style="margin-top:14px">
+              <li>余额与保证金充足性检查</li>
+              <li>单笔/累计下单限额</li>
+              <li>价格偏离保护（防止乌龙指）</li>
+              <li>持仓上限与杠杆上限</li>
+              <li>频率限制与异常行为拦截</li>
+            </ul>
+          </div>
+          <div class="card gold-top">
+            <h3>事中监控</h3>
+            <ul class="list-clean" style="margin-top:14px">
+              <li>实时保证金率计算</li>
+              <li>强平触发与执行调度</li>
+              <li>标记价格与指数价格监控</li>
+              <li>市场异常波动告警</li>
+              <li>大额订单与可疑账户追踪</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style="font-size:19px;margin:36px 0 18px">标记价格：为什么不能直接用最新成交价</h3>
+        <p style="color:var(--fg-muted)">
+          如果强平依据「最新成交价」，那么攻击者只需在流动性差的时刻用一笔小额订单把价格打到极端位置，
+          就能触发大量强平并从中获利。<b>标记价格（Mark Price）</b>用现货指数 + 资金费率基差计算出一个更稳健的价格，
+          专门用于计算盈亏与触发强平，与成交价解耦。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:26px">
+          <table>
+            <thead><tr><th>价格类型</th><th>用途</th><th>计算方式</th></tr></thead>
+            <tbody>
+              <tr><td><b>最新成交价</b></td><td>展示、行情</td><td>最近一笔撮合价格</td></tr>
+              <tr><td><b>标记价格</b></td><td class="gold">计算盈亏、触发强平</td><td>多交易所现货指数 + 基差移动平均</td></tr>
+              <tr><td><b>指数价格</b></td><td>标记价格的输入</td><td>多家主流交易所价格的加权中位数</td></tr>
+              <tr><td><b>强平价格</b></td><td>用户参考</td><td>由开仓价、杠杆、维持保证金率反推</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn" style="margin-top:28px">
+          <div class="callout-t">保险基金与 ADL 的必要性</div>
+          <p>极端行情下，强平单可能因流动性枯竭而无法以好价格成交，产生穿仓损失。
+          平台需要<b>保险基金</b>吸收这部分缺口；当基金不足时，启用<b>自动减仓（ADL）</b>，
+          强制平掉盈利最多的对手仓位来填补。这套机制虽然对个体不公平，但它是保护平台免于破产的最后一道防线。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 06 钱包 -->
+      <section id="wallet">
+        <div class="sec-head">
+          <span class="sec-num">06</span>
+          <h2>钱包与资金安全 <span class="cn">· 最容易被攻破的一环</span></h2>
+        </div>
+
+        <p class="lead">
+          平台持有的是用户真实资产。历史上交易所被盗的案例远多于被攻击的案例中平台能全额赔付的。
+          <b>钱包架构的设计质量，直接决定平台能活多久。</b>
+        </p>
+
+        <div class="grid g3" style="margin-top:32px">
+          <div class="card">
+            <span class="tag info">热钱包</span>
+            <h3 style="margin-top:14px;font-size:16.5px">Hot Wallet</h3>
+            <p>联网，用于处理日常提币。只保留满足日常提现的少量资金（通常不超过总资产的 2%~5%）。</p>
+            <p style="margin-top:12px;font-size:12.5px;color:var(--up)">风险最高，必须严格限额</p>
+          </div>
+          <div class="card">
+            <span class="tag gold">温钱包</span>
+            <h3 style="margin-top:14px;font-size:16.5px">Warm Wallet</h3>
+            <p>半离线，用于热钱包补充。需要人工审批与多签，自动化程度较低。</p>
+            <p style="margin-top:12px;font-size:12.5px;color:var(--warn)">平衡安全与效率</p>
+          </div>
+          <div class="card">
+            <span class="tag down">冷钱包</span>
+            <h3 style="margin-top:14px;font-size:16.5px">Cold Wallet</h3>
+            <p>完全离线，私钥永不接触网络。存放绝大部分资产，动用需多人多签、线下审批。</p>
+            <p style="margin-top:12px;font-size:12.5px;color:var(--down)">最安全，但操作缓慢</p>
+          </div>
+        </div>
+
+        <h3 style="font-size:19px;margin:36px 0 18px">多重签名</h3>
+        <p style="color:var(--fg-muted)">
+          采用 M-of-N 方案：例如 3-of-5 表示 5 把密钥中需要至少 3 把同时签名才能完成转账。
+          密钥分散到不同人、不同地理位置保管，任何单点泄露或内部人员作恶都无法单独转移资产。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:26px">
+          <table>
+            <thead><tr><th>安全措施</th><th>作用</th><th>实现方式</th></tr></thead>
+            <tbody>
+              <tr><td><b>冷热分离</b></td><td>限制单次损失上限</td><td>95%+ 资产离线存储</td></tr>
+              <tr><td><b>多重签名</b></td><td>防止单点失守</td><td>3-of-5 密钥分散保管</td></tr>
+              <tr><td><b>HSM 硬件模块</b></td><td>私钥不可导出</td><td>签名在硬件内完成</td></tr>
+              <tr><td><b>提币风控</b></td><td>拦截异常提现</td><td>地址白名单、延迟到账、人工复核</td></tr>
+              <tr><td><b>地址校验</b></td><td>防止地址替换攻击</td><td>提币地址二次确认 + 前端防篡改</td></tr>
+              <tr><td><b>储备金证明</b></td><td>向用户证明资产充足</td><td>Merkle 树证明用户余额被包含</td></tr>
+              <tr><td><b>链上监控</b></td><td>及时发现异常流出</td><td>大额转账实时告警</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-16-9"><img src="../assets/img/code-screen.jpg" alt="代码审计"></div>
+          <figcaption>钱包相关代码与智能合约必须经过独立第三方审计。在涉及资金的代码上，「测试通过」从来不等于「安全」。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 07 技术栈 -->
+      <section id="stack">
+        <div class="sec-head">
+          <span class="sec-num">07</span>
+          <h2>技术栈全景</h2>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>模块</th><th>推荐技术</th><th>选型理由</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>撮合引擎</b></td>
+                <td class="mono gold">C++ / Rust</td>
+                <td>无 GC 停顿、可精确控制内存布局与 CPU 亲和性</td>
+              </tr>
+              <tr>
+                <td><b>订单与业务服务</b></td>
+                <td class="mono">Go / Java (Netty)</td>
+                <td>并发模型成熟，开发生态好，性能足以支撑网关层</td>
+              </tr>
+              <tr>
+                <td><b>账务系统</b></td>
+                <td class="mono">Go / Java + PostgreSQL</td>
+                <td>强事务支持，ACID 保证，配合整数金额类型</td>
+              </tr>
+              <tr>
+                <td><b>风控引擎</b></td>
+                <td class="mono">Rust / C++</td>
+                <td>极致低延迟，要求微秒级响应</td>
+              </tr>
+              <tr>
+                <td><b>行情推送</b></td>
+                <td class="mono">Go / C++ + WebSocket</td>
+                <td>高并发长连接管理，支持百万级连接</td>
+              </tr>
+              <tr>
+                <td><b>消息队列</b></td>
+                <td class="mono">Kafka / NATS / Pulsar</td>
+                <td>事件流解耦，支持顺序保证与重放</td>
+              </tr>
+              <tr>
+                <td><b>缓存</b></td>
+                <td class="mono">Redis</td>
+                <td>热点数据、分布式锁、限流计数</td>
+              </tr>
+              <tr>
+                <td><b>时序数据</b></td>
+                <td class="mono">ClickHouse / TimescaleDB</td>
+                <td>海量行情与成交记录的高效存储与查询</td>
+              </tr>
+              <tr>
+                <td><b>链上交互</b></td>
+                <td class="mono">Go-Ethereum / Web3.js / Rust</td>
+                <td>节点通信、交易构造与广播、事件监听</td>
+              </tr>
+              <tr>
+                <td><b>密钥管理</b></td>
+                <td class="mono">HSM / Vault / MPC</td>
+                <td>私钥隔离、签名服务化、多方计算</td>
+              </tr>
+              <tr>
+                <td><b>前端</b></td>
+                <td class="mono">React / Vue + Canvas / WebGL</td>
+                <td>K 线图高性能渲染，深度图实时更新</td>
+              </tr>
+              <tr>
+                <td><b>可观测性</b></td>
+                <td class="mono">Prometheus + Grafana + Jaeger</td>
+                <td>指标、日志、链路追踪三位一体</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout" style="margin-top:30px">
+          <div class="callout-t">语言选择的实质</div>
+          <p>不是「哪个语言最好」，而是<b>「这段代码的延迟要求是什么」</b>。撮合路径要求个位数微秒，必须用无 GC 的语言；
+          业务逻辑要求开发效率与正确性，Go/Java 更合适。用 Go 写撮合能跑，但会损失一个数量级的延迟优势。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 08 非功能 -->
+      <section id="nonfunc">
+        <div class="sec-head">
+          <span class="sec-num">08</span>
+          <h2>非功能要求 <span class="cn">· 这些比功能更难做到</span></h2>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>维度</th><th>目标</th><th>关键手段</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>延迟</b></td>
+                <td class="mono gold">撮合 P99 &lt; 1ms</td>
+                <td>内存撮合、CPU 绑定、无锁队列、内核旁路网络</td>
+              </tr>
+              <tr>
+                <td><b>吞吐</b></td>
+                <td class="mono gold">10 万+ TPS</td>
+                <td>分片（按交易对）、水平扩展网关、异步持久化</td>
+              </tr>
+              <tr>
+                <td><b>可用性</b></td>
+                <td class="mono gold">99.99%</td>
+                <td>多活部署、故障自动切换、跨机房容灾</td>
+              </tr>
+              <tr>
+                <td><b>一致性</b></td>
+                <td class="mono gold">账务零误差</td>
+                <td>复式记账、幂等设计、定时全量对账</td>
+              </tr>
+              <tr>
+                <td><b>可审计</b></td>
+                <td class="mono gold">全链路可追溯</td>
+                <td>事件溯源、不可篡改的审计日志、只追加设计</td>
+              </tr>
+              <tr>
+                <td><b>可恢复</b></td>
+                <td class="mono gold">RPO=0 / RTO&lt;1min</td>
+                <td>WAL 顺序日志、定期快照、自动重放恢复</td>
+              </tr>
+              <tr>
+                <td><b>安全性</b></td>
+                <td class="mono gold">防内外攻击</td>
+                <td>最小权限、双人复核、密钥隔离、渗透测试</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger" style="margin-top:30px">
+          <div class="callout-t">「账务零误差」意味着什么</div>
+          <p>假设平台有 100 万个账户，每账户每天 100 笔操作，一年就是 365 亿次记录。
+          <b>错误率必须低于百亿分之一才能真正做到「零误差」。</b>这就是为什么账务系统必须用最保守的设计 ——
+          宁可慢，不可错；宁可拒绝请求，不可产生不确定状态。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 09 合规 -->
+      <section id="comply">
+        <div class="sec-head">
+          <span class="sec-num">09</span>
+          <h2>合规与牌照 <span class="cn">· 真正的门槛在这里</span></h2>
+        </div>
+
+        <p class="lead">
+          技术可以招人解决，合规不能。<b>这是绝大多数交易平台项目真正的生死线。</b>
+        </p>
+
+        <div class="callout danger" style="margin-top:30px">
+          <div class="callout-t">中国大陆的监管立场</div>
+          <p>根据中国人民银行等部门发布的相关通知，<b>虚拟货币相关业务活动属于非法金融活动</b>。
+          在中国境内开设虚拟货币交易所、提供撮合与衍生品交易服务、为虚拟货币交易提供支付结算服务，均不被允许。
+          任何在中国境内面向公众运营虚拟币交易平台的设想，在合规层面都不成立。</p>
+        </div>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>监管要求</th><th>内容</th><th>工程实现</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>KYC 实名认证</b></td>
+                <td>身份核验、地址证明、风险评级</td>
+                <td>证件 OCR、活体检测、第三方风控接口</td>
+              </tr>
+              <tr>
+                <td><b>AML 反洗钱</b></td>
+                <td>可疑交易监测与上报</td>
+                <td>规则引擎 + 链上地址风险评分</td>
+              </tr>
+              <tr>
+                <td><b>CFT 反恐融资</b></td>
+                <td>制裁名单筛查</td>
+                <td>实时名单比对与拦截</td>
+              </tr>
+              <tr>
+                <td><b>交易报告</b></td>
+                <td>大额与可疑交易报送</td>
+                <td>自动化报表生成与上报接口</td>
+              </tr>
+              <tr>
+                <td><b>资金隔离</b></td>
+                <td>客户资产与平台资产分离</td>
+                <td>独立账户体系 + 定期第三方审计</td>
+              </tr>
+              <tr>
+                <td><b>数据留存</b></td>
+                <td>交易与身份数据保存若干年</td>
+                <td>冷存储 + 加密归档</td>
+              </tr>
+              <tr>
+                <td><b>牌照资质</b></td>
+                <td>部分地区需 VASP / MSB 等许可</td>
+                <td>法务与政府事务，非工程问题</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout info" style="margin-top:28px">
+          <div class="callout-t">成本量级</div>
+          <p>在允许的司法辖区申请合规牌照，周期通常在 6~24 个月，直接成本从数十万到数百万美元不等，
+          且需要持续的合规团队与审计支出。<b>这笔投入往往超过整个技术团队的成本</b> —— 这是行业最真实的一面。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 10 路线图 -->
+      <section id="roadmap">
+        <div class="sec-head">
+          <span class="sec-num">10</span>
+          <h2>如果真要做，路线图长什么样</h2>
+          <p>顺序很重要。先做能验证核心机制的闭环，再叠加复杂功能。</p>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第一阶段 · 账务内核</h4>
+              <p>先做复式记账系统，加幂等与对账。用单元测试与不变量校验（账目恒为零）保证正确性。
+              <b>不要急着做界面</b> —— 账目错了，界面再好看也没意义。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第二阶段 · 撮合引擎</h4>
+              <p>实现内存订单簿与价格优先时间优先匹配。用历史数据做回放测试，验证确定性与性能。
+              目标：百万订单回放结果完全一致。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第三阶段 · 现货闭环</h4>
+              <p>打通下单 → 撮合 → 账务 → 行情推送的完整链路。此时已经可以支撑现货交易。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第四阶段 · 钱包与充提</h4>
+              <p>接入区块链节点，实现地址生成、充值监听、提币签名。建立冷热钱包体系与多签审批流程。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第五阶段 · 风控与合约</h4>
+              <p>加入保证金计算、强平引擎、保险基金。上线永续合约 —— 复杂度显著高于现货，必须建立在前四个阶段稳固的基础上。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第六阶段 · 期权与做市</h4>
+              <p>引入期权定价、希腊字母风控，以及做市商体系。这是最高阶的部分，需要专门的量化与衍生品团队。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>贯穿全程 · 安全与合规</h4>
+              <p>安全审计、渗透测试、KYC/AML、牌照申请必须<b>并行推进</b>，而不是等到最后补。很多项目死在「功能做完了但拿不到许可」。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:34px">
+          <div class="callout-t">最后必须说明</div>
+          <p>本章是<b>技术架构层面的知识梳理</b>，用于理解这类系统的组成与难点。
+          在中国大陆，搭建与运营虚拟货币交易平台属于非法金融活动，本内容不构成任何形式的实施指引或建议。
+          若对金融交易系统本身感兴趣，同样的技术架构（撮合引擎、复式记账、低延迟风控）完全适用于合规的证券、期货与支付清算系统。</p>
+        </div>
+
+        <div style="margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <a href="derivatives.html" class="btn ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 12H5M11 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            上一章 · 期权与杠杆
+          </a>
+          <a href="glossary.html" class="btn">
+            附 · 术语表
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。站内数据均为模拟。</p>
+      <p>第六章 · 交易平台开发全貌</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

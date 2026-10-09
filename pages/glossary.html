@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>术语表 — Ledger</title>
+<meta name="description" content="区块链与数字资产交易领域核心术语速查，支持搜索与分类筛选。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+<style>
+  .gl-tools { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:30px; }
+  .gl-search {
+    flex:1; min-width:240px; background:var(--ink-100); border:1px solid var(--line-strong);
+    border-radius:2px; padding:12px 16px; color:var(--fg); font-size:14px; font-family:var(--sans); outline:none;
+    transition:border-color .2s, background .2s;
+  }
+  .gl-search::placeholder { color:var(--fg-ghost); }
+  .gl-search:focus { border-color:var(--line-gold); background:var(--ink-150); }
+  .gl-filters { display:flex; gap:6px; flex-wrap:wrap; }
+  .gl-filters button {
+    font-size:12.5px; padding:7px 14px; border-radius:2px; border:1px solid var(--line);
+    background:none; color:var(--fg-muted); cursor:pointer; transition:all .18s; font-family:var(--sans);
+  }
+  .gl-filters button:hover { border-color:var(--line-gold); color:var(--gold-200); }
+  .gl-filters button.on { background:rgba(212,180,120,.12); border-color:var(--gold-400); color:var(--gold-100); }
+  .gl-count { font-family:var(--mono); font-size:11.5px; color:var(--fg-ghost); margin-bottom:22px; }
+  .gl-item {
+    border-bottom:1px solid var(--line-soft); padding:22px 0; display:grid;
+    grid-template-columns:190px 1fr; gap:26px; align-items:start;
+  }
+  .gl-item:hover { background:rgba(255,255,255,.014); }
+  .gl-term { font-size:16.5px; color:var(--fg-strong); font-weight:500; }
+  .gl-en { font-family:var(--mono); font-size:11px; color:var(--gold-400); letter-spacing:.05em; margin-top:4px; }
+  .gl-cat { display:inline-block; font-family:var(--mono); font-size:9.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--fg-ghost); border:1px solid var(--line); padding:2px 7px; border-radius:2px; margin-top:8px; }
+  .gl-def { font-size:14.5px; color:var(--fg-muted); line-height:1.75; }
+  .gl-def b { color:var(--fg-strong); font-weight:500; }
+  .gl-empty { text-align:center; padding:70px 0; color:var(--fg-ghost); font-size:14px; }
+  @media (max-width:760px) {
+    .gl-item { grid-template-columns:1fr; gap:10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html">区块链原理</a>
+      <a href="evolution.html">演进与共识</a>
+      <a href="cashflow.html">资金流路径</a>
+      <a href="trading.html">交易与撮合</a>
+      <a href="derivatives.html">期权与杠杆</a>
+      <a href="build.html">平台开发</a>
+      <a href="glossary.html" class="nav-cta active">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>附录</div>
+    <span class="sec-num">GLOSSARY</span>
+    <h1 class="display" style="font-size:clamp(34px,4.6vw,52px)">术语表</h1>
+    <p class="lead">从密码学原语到衍生品定价，60 余条核心术语。支持搜索与分类筛选。</p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:44px;padding-bottom:60px">
+
+  <div class="gl-tools">
+    <input type="search" class="gl-search" placeholder="搜索术语、英文缩写或释义内容…" data-gl-search>
+    <div class="gl-filters" data-gl-filters>
+      <button class="on" data-cat="all">全部</button>
+      <button data-cat="密码学">密码学</button>
+      <button data-cat="共识">共识机制</button>
+      <button data-cat="交易">交易与市场</button>
+      <button data-cat="衍生品">衍生品</button>
+      <button data-cat="工程">平台工程</button>
+      <button data-cat="资金">资金与监管</button>
+    </div>
+  </div>
+  <div class="gl-count" data-gl-count></div>
+  <div data-gl-list></div>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。</p>
+      <p>附录 · 术语表</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var DATA = [
+    ["哈希函数","Hash Function","密码学","把任意长度输入压缩为固定长度输出的单向函数。区块链依赖它的四个性质：确定性、单向性、雪崩效应、抗碰撞。"],
+    ["SHA-256","Secure Hash Algorithm 256","密码学","输出 256 位（64 位十六进制字符）的密码学哈希算法。比特币用它生成区块与交易的指纹。"],
+    ["Keccak-256","Keccak-256","密码学","以太坊使用的哈希算法，是 SHA-3 标准的前身。以太坊地址、交易哈希均由它生成。"],
+    ["非对称加密","Asymmetric Encryption","密码学","使用公钥与私钥一对密钥的加密体系。公钥可公开，私钥保密；两者数学相关但无法互相推导。"],
+    ["私钥","Private Key","密码学","控制资产的唯一凭证，通常为 256 位随机数。<b>泄露即资产失控，丢失即资产永久锁定。</b>"],
+    ["公钥","Public Key","密码学","由私钥单向推导得出，可安全公开。用于验证签名或作为加密目标。"],
+    ["地址","Address","密码学","由公钥经过哈希与编码生成的收款标识。比特币用 Base58Check，以太坊用 0x 开头的十六进制。"],
+    ["数字签名","Digital Signature","密码学","用私钥对数据摘要生成凭证的过程。任何人可用对应公钥验证，证明交易确由该私钥持有者授权。"],
+    ["椭圆曲线密码","ECDSA / secp256k1","密码学","比特币与以太坊使用的签名算法。正向计算公钥很快，反向推导私钥在现有算力下不可行。"],
+    ["默克尔树","Merkle Tree","密码学","把交易两两配对逐层哈希，最终得到单一根哈希。使轻节点能以极小代价验证某笔交易是否被包含。"],
+    ["默克尔根","Merkle Root","密码学","默克尔树顶层的哈希值，存放在区块头中，代表该区块内全部交易的完整性。"],
+    ["零知识证明","Zero-Knowledge Proof","密码学","在不透露具体信息的前提下证明某个命题为真。zk-SNARK、zk-STARK 是常见实现，用于隐私与扩容。"],
+    ["多重签名","Multi-sig","密码学","M-of-N 方案，需 N 把密钥中至少 M 把同时签名才能转账。用于分散单点风险。"],
+    ["硬件钱包","Hardware Wallet","密码学","私钥存储在离线硬件设备中，签名在设备内完成，避免私钥接触联网环境。"],
+    ["工作量证明","PoW · Proof of Work","共识机制","通过消耗算力寻找满足条件的哈希值来争夺记账权的共识机制。比特币与莱特币采用。"],
+    ["权益证明","PoS · Proof of Stake","共识机制","通过质押代币获得出块权的共识机制，作恶则质押被罚没。以太坊在 2022 年切换至该机制。"],
+    ["委托权益证明","DPoS","共识机制","由持币者投票选出少数见证人负责出块的机制。性能高但去中心化程度较低。"],
+    ["验证者","Validator","共识机制","PoS 网络中质押代币并负责提议与确认区块的节点。"],
+    ["矿工","Miner","共识机制","PoW 网络中投入算力寻找有效区块的参与者，获得区块奖励与手续费。"],
+    ["算力","Hash Rate","共识机制","单位时间内完成的哈希运算次数，衡量 PoW 网络总计算能力的指标。"],
+    ["难度调整","Difficulty Adjustment","共识机制","协议定期自动调整出块难度，使平均出块间隔保持稳定。比特币每 2016 个区块调整一次。"],
+    ["分叉","Fork","共识机制","区块链规则改变导致的分裂。软分叉向后兼容，硬分叉不兼容并可能产生两条独立链。"],
+    ["最终性","Finality","共识机制","交易被确认且不可回滚的状态。PoW 为概率性最终性，PoS 可实现确定性最终性。"],
+    ["区块重组","Reorg","共识机制","节点丢弃当前较短链、切换到累计工作量更大链的过程。导致其中的交易回到待确认状态。"],
+    ["51% 攻击","51% Attack","共识机制","控制超过半数算力后撤回自己交易或审查他人交易的能力。无法伪造签名或窃取他人资产。"],
+    ["拜占庭将军问题","Byzantine Generals Problem","共识机制","分布式系统在存在恶意节点时达成一致的难题。理论上恶意节点达到 1/3 即无法保证一致性。"],
+    ["交易对","Trading Pair","交易与市场","标明两种资产交换关系的标识，如 BTC/USDT 表示用 USDT 计价买卖 BTC。"],
+    ["订单簿","Order Book","交易与市场","实时维护的买卖意向表，买单（Bid）与卖单（Ask）按价格优劣排列。市场的核心数据结构。"],
+    ["价差","Spread","交易与市场","最优买价与最优卖价之间的差额，是流动性的直接体现。"],
+    ["市价单","Market Order","交易与市场","以对手方最优价立即成交的订单，成交快但价格不可控。"],
+    ["限价单","Limit Order","交易与市场","指定价格的订单，达不到则挂在订单簿上等待成交。"],
+    ["止损单","Stop Order","交易与市场","价格触及触发值后转为市价单的订单，用于自动控制亏损。"],
+    ["Maker / Taker","Maker / Taker","交易与市场","挂单方与吃单方。Maker 提供流动性享低费率，Taker 消耗流动性付高费率。"],
+    ["滑点","Slippage","交易与市场","预期成交价与实际成交价之间的偏差，源自流动性不足与订单簿深度不够。"],
+    ["深度","Market Depth","交易与市场","订单簿中各价格档位的挂单总量，衡量市场可承接的交易规模。"],
+    ["流动性","Liquidity","交易与市场","资产在不显著影响价格的前提下被快速买卖的能力。"],
+    ["撮合引擎","Matching Engine","交易与市场","按价格优先、时间优先原则匹配买卖订单的核心系统，延迟通常在微秒级。"],
+    ["清算","Clearing","交易与市场","成交后更新双方余额、计算手续费与盈亏的账务处理过程。"],
+    ["结算","Settlement","交易与市场","资产实际转移与所有权确认的过程。中心化平台多数交易在链下清算，仅在充提时上链。"],
+    ["K线","Candlestick","交易与市场","把一段时间内的开盘、最高、最低、收盘四个价格压缩成的图形。<b>本站采用中国习惯：红涨绿跌。</b>"],
+    ["标记价格","Mark Price","交易与市场","用于计算盈亏与触发强平的稳健价格，由现货指数与基差计算，避免被单笔成交操纵。"],
+    ["自动做市商","AMM","交易与市场","用数学公式（如 x×y=k）自动报价的去中心化交易机制，无需订单簿与做市商挂单。"],
+    ["无常损失","Impermanent Loss","交易与市场","AMM 提供流动性时，因两种资产价格比例偏离而产生的相对损失。"],
+    ["做市商","Market Maker","交易与市场","同时报出买卖价格、赚取价差并提供市场流动性的专业参与者。"],
+    ["永续合约","Perpetual Swap","衍生品","没有到期日的合约，通过资金费率机制锚定现货价格。币圈最主要的投机与对冲工具。"],
+    ["资金费率","Funding Rate","衍生品","永续合约中多空双方定期互相支付的费用，用于把合约价拉回现货价。每 8 小时结算一次。"],
+    ["杠杆","Leverage","衍生品","放大仓位的倍数。爆仓所需反向幅度 = 1 ÷ 杠杆倍数，杠杆越高安全边际越小。"],
+    ["保证金","Margin","衍生品","开仓时冻结的抵押资金，用于承担潜在亏损。"],
+    ["逐仓","Isolated Margin","衍生品","为单个仓位单独划拨保证金，风险隔离，最坏结果是该仓位保证金亏光。"],
+    ["全仓","Cross Margin","衍生品","账户全部余额共同作为保证金，资金利用率高但风险不隔离。"],
+    ["强制平仓","Liquidation","衍生品","保证金率低于维持要求时系统强制平掉仓位，以防止穿仓损失。"],
+    ["连环爆仓","Liquidation Cascade","衍生品","强平单本身推动价格进一步不利变动，触发更多强平的正反馈循环。"],
+    ["保险基金","Insurance Fund","衍生品","用于吸收穿仓损失的资金池，保护平台与对手方免于承担用户违约。"],
+    ["自动减仓","ADL","衍生品","保险基金不足时，系统强制平掉盈利最多的对手仓位以填补缺口的机制。"],
+    ["期权","Option","衍生品","赋予买方在未来以约定价格买卖标的的权利（而非义务）的合约。买方付权利金。"],
+    ["看涨期权","Call Option","衍生品","买方有权以行权价买入标的。看涨时使用。"],
+    ["看跌期权","Put Option","衍生品","买方有权以行权价卖出标的。看跌或对冲持仓时使用。"],
+    ["权利金","Premium","衍生品","期权买方为获得权利而支付给卖方的费用。"],
+    ["行权价","Strike Price","衍生品","期权合约中约定的买卖价格。"],
+    ["希腊字母","Greeks","衍生品","衡量期权价格对各因素敏感度的指标：Delta、Gamma、Theta、Vega、Rho。"],
+    ["Delta","Delta Δ","衍生品","标的价格变动 1 元时期权价格的变动量，可理解为等效持仓量。"],
+    ["Theta","Theta Θ","衍生品","每过一天期权价格的时间衰减量。买方为负，卖方为正 —— 时间是买方的敌人。"],
+    ["隐含波动率","Implied Volatility","衍生品","由期权市场价格反推出的对未来波动率的预期，是市场恐慌或乐观程度的度量。"],
+    ["复式记账","Double-Entry Bookkeeping","平台工程","每笔资金变动同时记录借方与贷方，保证任一时点所有账户余额之和恒定的记账方法。"],
+    ["幂等性","Idempotency","平台工程","同一操作执行多次与执行一次结果相同。通过唯一业务 ID 保证，防止网络重试导致重复扣款。"],
+    ["事件溯源","Event Sourcing","平台工程","以只追加的事件序列作为唯一真实来源，当前状态由事件重放得出的架构模式。"],
+    ["预写日志","WAL","平台工程","所有变更先写顺序日志再处理，用于崩溃后的精确恢复与审计回放。"],
+    ["冷热钱包","Cold / Hot Wallet","平台工程","热钱包联网处理日常提币，冷钱包离线存储绝大部分资产，两者分离以限制单次损失。"],
+    ["托管","Custody","资金与监管","资产由第三方代为保管的状态。中心化交易所的余额即为托管资产，用户承担平台信用风险。"],
+    ["稳定币","Stablecoin","资金与监管","锚定法币价值的加密货币，是法币与加密资产之间的主要接口。分为法币抵押、加密超额抵押与算法型。"],
+    ["市值","Market Cap","资金与监管","当前价格乘以流通量。<b>注意它只反映边际成交价，不代表真实可变现规模。</b>"],
+    ["完全稀释估值","FDV","资金与监管","价格乘以总发行量，反映全部代币解锁后的估值，是判断抛压的重要指标。"],
+    ["法币入金","Fiat On-ramp","资金与监管","把法币兑换为加密资产的过程，是整个行业受监管最严格的环节。"],
+    ["KYC","Know Your Customer","资金与监管","客户身份识别与核验的合规要求，通常包括证件验证与活体检测。"],
+    ["AML","Anti-Money Laundering","资金与监管","反洗钱要求，包括可疑交易监测与上报。"],
+    ["储备金证明","Proof of Reserves","资金与监管","平台用默克尔树证明用户余额被包含在储备中的方法，用于验证资产充足性。"],
+    ["UTXO","Unspent Transaction Output","交易与市场","比特币的记账模型。余额由若干未花费输出的集合构成，花用需整张支出并找零。"],
+    ["账户模型","Account Model","交易与市场","以太坊的记账模型。以「地址 → 余额」形式维护全局状态，并配合 nonce 防止重放。"],
+    ["非托管","Non-Custodial","资金与监管","用户自行掌控私钥、无需信任第三方的资产持有方式。"]
+  ];
+
+  var list = document.querySelector('[data-gl-list]');
+  var search = document.querySelector('[data-gl-search]');
+  var filters = document.querySelector('[data-gl-filters]');
+  var countEl = document.querySelector('[data-gl-count]');
+  var cat = 'all';
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function render() {
+    var q = (search.value || '').trim().toLowerCase();
+    var hits = DATA.filter(function(d){
+      if (cat !== 'all' && d[2] !== cat) return false;
+      if (!q) return true;
+      return (d[0] + ' ' + d[1] + ' ' + d[2] + ' ' + d[3]).toLowerCase().indexOf(q) >= 0;
+    });
+
+    countEl.textContent = '共 ' + hits.length + ' 条 / 全部 ' + DATA.length + ' 条';
+
+    if (!hits.length) {
+      list.innerHTML = '<div class="gl-empty">没有匹配的术语。试试其他关键词，或切换到「全部」分类。</div>';
+      return;
+    }
+
+    list.innerHTML = hits.map(function(d){
+      return '<div class="gl-item">' +
+        '<div><div class="gl-term">' + esc(d[0]) + '</div>' +
+        '<div class="gl-en">' + esc(d[1]) + '</div>' +
+        '<div class="gl-cat">' + esc(d[2]) + '</div></div>' +
+        '<div class="gl-def">' + d[3] + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  search.addEventListener('input', render);
+  filters.addEventListener('click', function(e){
+    if (e.target.tagName !== 'BUTTON') return;
+    filters.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+    e.target.classList.add('on');
+    cat = e.target.getAttribute('data-cat');
+    render();
+  });
+
+  render();
+})();
+</script>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

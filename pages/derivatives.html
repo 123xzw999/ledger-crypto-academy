@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第五章 · 期权与杠杆 — Ledger</title>
+<meta name="description" content="永续合约、资金费率、逐仓全仓、强平引擎、期权希腊字母与隐含波动率：杠杆放大收益的同时等比放大爆仓概率。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html">区块链原理</a>
+      <a href="evolution.html">演进与共识</a>
+      <a href="cashflow.html">资金流路径</a>
+      <a href="trading.html">交易与撮合</a>
+      <a href="derivatives.html" class="active">期权与杠杆</a>
+      <a href="build.html">平台开发</a>
+      <a href="glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>第五章</div>
+    <span class="sec-num">CHAPTER V</span>
+    <h1 class="display">Leverage</h1>
+    <p style="font-family:var(--serif-cn);font-size:clamp(24px,3.4vw,34px);color:var(--fg);margin-top:2px;font-weight:300">期权与杠杆 —— 放大的是收益，也等比放大死亡概率</p>
+    <p class="lead">
+      杠杆和衍生品是币圈最吸引人、也最容易致命的部分。它们把「价格波动」这个本来温和的东西，
+      变成了一场毫秒级的清算游戏。这一章讲清楚永续合约的定价逻辑、保证金的运作方式、
+      强平引擎如何触发，以及期权那套看起来抽象但实际上非常实用的定价体系。
+    </p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:52px">
+  <div class="doc-layout">
+
+    <aside class="toc">
+      <div class="toc-t">本章目录</div>
+      <a href="#why">01 · 为什么会存在杠杆</a>
+      <a href="#perp">02 · 永续合约</a>
+      <a href="#funding">03 · 资金费率</a>
+      <a href="#margin">04 · 保证金模式</a>
+      <a href="#lev">05 · 爆仓计算器 · 交互</a>
+      <a href="#liq">06 · 强平引擎</a>
+      <a href="#option">07 · 期权基础</a>
+      <a href="#greeks">08 · 希腊字母</a>
+      <a href="#iv">09 · 隐含波动率</a>
+      <a href="#risk">10 · 风险清单</a>
+    </aside>
+
+    <main>
+
+      <!-- 01 -->
+      <section id="why" style="padding-top:0">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2>杠杆的本质：借钱买</h2>
+        </div>
+        <p class="lead">
+          杠杆就是借来的钱。你有 1 万元，加上借来的 9 万元，就能开一个 10 万元的头寸。
+          价格涨 10%，你赚 1 万 —— 相当于本金的 100%。价格跌 10%，你亏 1 万 —— 本金归零。
+        </p>
+
+        <div class="callout danger" style="margin-top:28px">
+          <div class="callout-t">数学上必须看清的事</div>
+          <p style="font-family:var(--mono);font-size:14px;line-height:2">
+            爆仓所需反向幅度 = 1 ÷ 杠杆倍数<br>
+            <span class="up">10 倍 → 反向 10.0% 归零</span><br>
+            <span class="up">20 倍 → 反向 5.0% 归零</span><br>
+            <span class="up">50 倍 → 反向 2.0% 归零</span><br>
+            <span class="up">100 倍 → 反向 1.0% 归零</span>
+          </p>
+          <p>而虚拟币日内波动 2%~5% 是常态。<b>在高杠杆下，「正常波动」就足以造成永久性损失。</b></p>
+        </div>
+
+        <div class="grid g3" style="margin-top:32px">
+          <div class="card">
+            <h3 style="font-size:17px">现货 Spot</h3>
+            <p>1 倍杠杆。买多少币就是多少币，价格跌到零才会亏光，可以长期持有等待。</p>
+            <p style="margin-top:12px;font-size:13px;color:var(--fg-faint)">没有强平，但有永久亏损的可能</p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:17px">杠杆 / 合约</h3>
+            <p>2~125 倍。放大盈亏，有强制平仓机制。方向判断正确与否决定一切。</p>
+            <p style="margin-top:12px;font-size:13px;color:var(--up)">有强平，可能在最优判断下仍被震出</p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:17px">期权 Options</h3>
+            <p>非线性工具。亏损有上限（权利金），收益理论上无上限。代价是要付时间价值。</p>
+            <p style="margin-top:12px;font-size:13px;color:var(--gold-300)">无强平，但会随时间流逝而贬值</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 02 永续合约 -->
+      <section id="perp">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2>永续合约 <span class="cn">· 币圈最重要的发明之一</span></h2>
+        </div>
+
+        <p class="lead">
+          传统期货合约有到期日，到期必须交割，价格会自然向现货收敛。
+          永续合约（Perpetual Swap）取消了到期日 —— 好处是可以永久持有，坏处是<b>失去了让价格收敛的机制</b>。
+        </p>
+
+        <p style="margin-top:22px">
+          解决办法就是<b>资金费率（Funding Rate）</b>：定期在多空双方之间互相支付一笔费用，
+          把合约价格拉回到现货价格附近。这是永续合约最核心的设计。
+        </p>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-21-9"><img src="../assets/img/trading-floor.jpg" alt="交易行情"></div>
+          <figcaption>永续合约的成交量在主流交易所里通常远高于现货 —— 它是整个币圈最主要的投机与对冲工具。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 03 资金费率 -->
+      <section id="funding">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2>资金费率 <span class="cn">· 让永续不飘走的锚</span></h2>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>情形</th><th>资金费率</th><th>谁付给谁</th><th>含义</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>合约价 &gt; 现货价</td>
+                <td class="mono up">正值</td>
+                <td>多头 → 空头</td>
+                <td>做多过于拥挤，多头要付费给空头</td>
+              </tr>
+              <tr>
+                <td>合约价 = 现货价</td>
+                <td class="mono">≈ 0</td>
+                <td>无</td>
+                <td>多空平衡</td>
+              </tr>
+              <tr>
+                <td>合约价 &lt; 现货价</td>
+                <td class="mono down">负值</td>
+                <td>空头 → 多头</td>
+                <td>做空过于拥挤，空头要付费给多头</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="kv-inline" style="margin-top:30px">
+          <div><dt>结算频率</dt><dd>每 8 小时</dd></div>
+          <div><dt>典型费率</dt><dd>0.01% / 次</dd></div>
+          <div><dt>极端行情</dt><dd>可达 0.3% / 次</dd></div>
+          <div><dt>年化（按 0.01%）</dt><dd>约 10.95%</dd></div>
+        </div>
+
+        <p style="margin-top:28px">
+          别小看这个数字。0.01% 每 8 小时，一天三次，一年就有 <b>约 11%</b>。
+          如果你用 10 倍杠杆持仓，资金费率是按<b>名义仓位</b>计算的 —— 也就是说，
+          <b>一年光资金费就可能吃掉本金的 100% 以上</b>，而这还跟价格涨跌完全无关。
+        </p>
+
+        <div class="callout warn">
+          <div class="callout-t">方向性策略的隐藏成本</div>
+          <p>在牛市中资金费率长期为正（多头付钱），持有多头仓位的人每天都在缓慢失血。极端行情下费率会飙升到 0.1%~0.3% 每 8 小时，<b>此时即使价格不动，重仓多头也会在几天内被资金费耗干。</b></p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 04 保证金 -->
+      <section id="margin">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2>保证金模式 <span class="cn">· 逐仓与全仓</span></h2>
+        </div>
+
+        <div class="grid g2" style="margin-top:32px">
+          <div class="card gold-top">
+            <span class="tag gold">逐仓 Isolated</span>
+            <h3 style="margin-top:14px">风险隔离</h3>
+            <p>为每个仓位单独划拨一笔保证金。<b>最坏结果是这一笔保证金亏光，其他资金不受影响。</b></p>
+            <ul class="list-clean" style="margin-top:16px">
+              <li>强平价可精确计算</li>
+              <li>适合高风险高杠杆的单笔投机</li>
+              <li>资金利用率低</li>
+            </ul>
+          </div>
+          <div class="card gold-top">
+            <span class="tag gold">全仓 Cross</span>
+            <h3 style="margin-top:14px">共享保证金</h3>
+            <p>账户内全部余额共同作为所有仓位的保证金。<b>抗波动能力更强，但一旦爆仓，是整账户一起归零。</b></p>
+            <ul class="list-clean" style="margin-top:16px">
+              <li>资金利用率高，强平概率较低</li>
+              <li>适合对冲组合与套利策略</li>
+              <li>风险不隔离，一处失守全线崩塌</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" style="margin-top:32px">
+          <table>
+            <thead><tr><th>关键指标</th><th>计算公式</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>初始保证金</b></td>
+                <td class="mono">名义仓位 ÷ 杠杆倍数</td>
+                <td>开仓时需冻结的资金</td>
+              </tr>
+              <tr>
+                <td><b>维持保证金</b></td>
+                <td class="mono">名义仓位 × 维持保证金率</td>
+                <td>低于此水平即触发强平，通常 0.4%~1%</td>
+              </tr>
+              <tr>
+                <td><b>保证金率</b></td>
+                <td class="mono">(账户权益 − 维持保证金) ÷ 名义仓位</td>
+                <td>实时监控，趋近 0 时警告</td>
+              </tr>
+              <tr>
+                <td><b>未实现盈亏</b></td>
+                <td class="mono">(当前价 − 开仓价) × 数量 × 方向</td>
+                <td>浮动盈亏，随价格实时变化</td>
+              </tr>
+              <tr>
+                <td><b>强平价</b></td>
+                <td class="mono">开仓价 × (1 − 1/杠杆 ± 维持保证金率)</td>
+                <td class="gold">实际强平价会比理论值更近，因为还要扣除手续费</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 05 计算器 -->
+      <section id="lev">
+        <div class="sec-head">
+          <span class="sec-num">05</span>
+          <h2>爆仓计算器 <span class="cn">· 亲手感受杠杆的锋利</span></h2>
+          <p>拖动滑块调整价格波动，切换杠杆倍数，实时观察保证金的变化与强平触发点。</p>
+        </div>
+
+        <div class="hashlab" id="levLab">
+          <div class="hashlab-head">
+            <h4>杠杆与强平仿真 · BTC/USDT 永续</h4>
+            <div class="calc-seg">
+              <button data-side="long" class="on">做多 LONG</button>
+              <button data-side="short">做空 SHORT</button>
+            </div>
+          </div>
+          <div class="hashlab-body" style="padding:0">
+            <div class="calc">
+              <div class="calc-in">
+                <div class="calc-field">
+                  <div class="calc-label"><span>杠杆倍数</span><b data-val="lev">10x</b></div>
+                  <input type="range" class="calc-range" min="1" max="125" step="1" value="10" data-in="lev">
+                  <div class="calc-ticks"><span>1x</span><span>25x</span><span>50x</span><span>75x</span><span>125x</span></div>
+                  <div class="calc-seg" style="margin-top:12px">
+                    <button data-lev="1">1x</button>
+                    <button data-lev="5">5x</button>
+                    <button data-lev="10" class="on">10x</button>
+                    <button data-lev="20">20x</button>
+                    <button data-lev="50">50x</button>
+                    <button data-lev="100">100x</button>
+                    <button data-lev="125">125x</button>
+                  </div>
+                </div>
+                <div class="calc-field">
+                  <div class="calc-label"><span>价格波动幅度</span><b data-val="move">-7.4%</b></div>
+                  <input type="range" class="calc-range" min="-50" max="50" step="0.1" value="-7.4" data-in="move">
+                  <div class="calc-ticks"><span>-50%</span><span>-25%</span><span>0</span><span>+25%</span><span>+50%</span></div>
+                </div>
+                <div class="calc-field">
+                  <div class="calc-label"><span>账户总资金</span><b data-val="bal">$10,000</b></div>
+                  <input type="range" class="calc-range" min="1000" max="200000" step="1000" value="10000" data-in="bal">
+                </div>
+                <div class="calc-field">
+                  <div class="calc-label"><span>仓位占用比例</span><b data-val="alloc">20%</b></div>
+                  <input type="range" class="calc-range" min="5" max="100" step="5" value="20" data-in="alloc">
+                </div>
+                <div class="calc-field">
+                  <div class="calc-label"><span>开仓价格</span><b data-val="entry">$67,420</b></div>
+                  <input type="range" class="calc-range" min="10000" max="150000" step="100" value="67420" data-in="entry">
+                </div>
+              </div>
+              <div class="calc-out">
+                <div class="calc-res">
+                  <div class="big" data-out="pnl">—</div>
+                  <div class="lbl">保证金收益率 <span data-out="pnl2" style="color:var(--fg-muted)"></span></div>
+                </div>
+                <div class="calc-kv"><span>名义仓位规模</span><span data-out="pos">—</span></div>
+                <div class="calc-kv"><span>占用保证金</span><span data-out="margin">—</span></div>
+                <div class="calc-kv"><span>强平价格</span><span data-out="liq">—</span></div>
+                <div class="calc-kv"><span>强平所需反向幅度</span><span data-out="liqmove">—</span></div>
+                <div class="calc-kv"><span>当前杠杆</span><span data-out="liqlev">—</span></div>
+                <div class="calc-kv"><span>账户权益</span><span data-out="equity">—</span></div>
+
+                <div style="margin-top:20px">
+                  <div class="calc-label"><span>距强平距离</span><span class="tiny faint">越满越危险</span></div>
+                  <div class="liq-bar"><div class="liq-fill" style="width:0%"></div></div>
+                  <div class="liq-marks"><span>安全</span><span>注意</span><span>危险</span><span>强平</span></div>
+                </div>
+
+                <div class="blow-warn callout danger" style="display:none;margin-top:22px;padding:16px 18px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style="margin-top:26px">
+          试几个组合：<b>100 倍杠杆 + 价格跌 1%</b>，看保证金直接归零。再试试
+          <b>125 倍杠杆</b> —— 只需 0.8% 的反向波动，仓位就被清算。
+          而 BTC 在剧烈行情下单根 1 分钟 K 线波动 0.8% 完全正常。
+        </p>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 06 强平引擎 -->
+      <section id="liq">
+        <div class="sec-head">
+          <span class="sec-num">06</span>
+          <h2>强平引擎 <span class="cn">· 毫秒级的清算机器</span></h2>
+        </div>
+
+        <p class="lead">
+          当账户保证金率低于维持保证金要求时，系统必须立刻处置这个仓位 ——
+          否则一旦价格跳空穿透，亏损会超过用户本金，形成「穿仓」，损失要由交易所或保险基金承担。
+        </p>
+
+        <div class="steps" style="margin-top:34px">
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>实时风险计算</h4>
+              <p>风控系统对每个仓位连续计算保证金率。这在行情剧烈波动时可能每秒执行数十万次。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>预警通知</h4>
+              <p>保证金率接近阈值时，系统向用户推送追加保证金通知。但在极端行情下，从预警到强平可能只有几秒钟。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>部分强平 / 减仓</h4>
+              <p>部分交易所会先平掉一部分仓位来降低维持保证金要求，给用户留出缓冲。这是相对温和的处理方式。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>全部强平</h4>
+              <p>以市价单强制平掉整个仓位。在流动性不足时，这笔强制平单本身会推动价格进一步下跌，引发更多的强平 —— <b>这就是连环爆仓（Cascade）</b>。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>保险基金与 ADL</h4>
+              <p>若强平后仍有亏损缺口（穿仓），由保险基金承担。基金耗尽时，触发自动减仓（ADL）—— 强制平掉对手方中盈利最多的仓位，用以填补缺口。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:34px">
+          <div class="callout-t">连环爆仓：为什么跌起来那么快</div>
+          <p>价格下跌 → 触发一批多头强平 → 强平单是市价卖单，进一步压低价格 → 触发更多多头强平。
+          <b>这是一个自我强化的正反馈循环。</b>历史上的极端行情（如 2021 年 5 月 19 日、2020 年 3 月 12 日）单日清算规模达数十亿美元，正是因为这种机制。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 07 期权 -->
+      <section id="option">
+        <div class="sec-head">
+          <span class="sec-num">07</span>
+          <h2>期权基础 <span class="cn">· 买卖的是「权利」</span></h2>
+        </div>
+
+        <p class="lead">
+          期权的本质是一份<b>权利合同</b>：买方付一笔权利金，获得「在未来某个时间、以约定价格买入或卖出」的权利（而不是义务）。
+          卖方收取权利金，承担相应义务。
+        </p>
+
+        <div class="grid g2" style="margin-top:34px">
+          <div class="card">
+            <span class="tag up">看涨期权</span>
+            <h3 style="margin-top:14px">Call Option</h3>
+            <p>买方有权在到期日以行权价<b>买入</b>标的资产。</p>
+            <p style="margin-top:14px">标的涨到行权价以上才有利可图。最大亏损 = 付出的权利金，理论收益无限。</p>
+            <p style="margin-top:12px;font-size:13px;color:var(--fg-faint)">看涨时买入 Call</p>
+          </div>
+          <div class="card">
+            <span class="tag down">看跌期权</span>
+            <h3 style="margin-top:14px">Put Option</h3>
+            <p>买方有权在到期日以行权价<b>卖出</b>标的资产。</p>
+            <p style="margin-top:14px">标的跌到行权价以下才有利可图。常用于对冲持仓下跌风险。</p>
+            <p style="margin-top:12px;font-size:13px;color:var(--fg-faint)">看跌或做保险时买入 Put</p>
+          </div>
+        </div>
+
+        <h3 style="font-size:19px;margin:38px 0 18px">四种基础策略</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>策略</th><th>构成</th><th>最大盈利</th><th>最大亏损</th><th>适用判断</th></tr></thead>
+            <tbody>
+              <tr><td><b>买入看涨</b></td><td class="mono">Long Call</td><td class="down">无限</td><td class="down">权利金</td><td>强烈看涨</td></tr>
+              <tr><td><b>买入看跌</b></td><td class="mono">Long Put</td><td class="down">行权价 − 权利金</td><td class="down">权利金</td><td>强烈看跌 / 对冲</td></tr>
+              <tr><td><b>卖出看涨</b></td><td class="mono">Short Call</td><td class="down">权利金</td><td class="up">理论无限</td><td>判断不涨 / 收租</td></tr>
+              <tr><td><b>卖出看跌</b></td><td class="mono">Short Put</td><td class="down">权利金</td><td class="up">行权价 − 权利金</td><td>判断不跌 / 低位接货</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn" style="margin-top:28px">
+          <div class="callout-t">卖方视角：胜率高，但尾部风险巨大</div>
+          <p>期权卖方的典型特征是<b>「长期小赚，一次爆亏」</b>。收取权利金时胜率往往很高，但遇到极端行情，一次亏损可能抹掉此前所有收益。
+          这在统计上被称为负偏态收益 —— 曲线左侧有一条极长的尾巴。</p>
+        </div>
+
+        <h3 style="font-size:19px;margin:38px 0 18px">三个价值维度</h3>
+        <div class="grid g3">
+          <div class="card">
+            <h3 style="font-size:16px;color:var(--gold-200)">内在价值</h3>
+            <p>立即行权能获得的价值。<br>看涨：<span class="mono">max(市价 − 行权价, 0)</span></p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:16px;color:var(--gold-200)">时间价值</h3>
+            <p>为「未来可能变得有利」支付的部分。剩余时间越长，时间价值越高。</p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:16px;color:var(--gold-200)">期权总价</h3>
+            <p><span class="mono">内在价值 + 时间价值</span><br>时间价值随到期临近而加速衰减（Theta）。</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 08 希腊字母 -->
+      <section id="greeks">
+        <div class="sec-head">
+          <span class="sec-num">08</span>
+          <h2>希腊字母 <span class="cn">· 风险的分解</span></h2>
+          <p>期权价格受多个因素影响。希腊字母把这些影响拆解开，量化成可以管理的风险敞口。</p>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>希腊字母</th><th>衡量什么</th><th>典型取值</th><th>实务含义</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b class="gold">Delta Δ</b></td>
+                <td>标的价格变动 1 元，期权价格变动多少</td>
+                <td class="mono">Call: 0~1<br>Put: −1~0</td>
+                <td>可理解为等效持仓量。Delta 0.6 的 Call 约等于持有 0.6 份标的</td>
+              </tr>
+              <tr>
+                <td><b class="gold">Gamma Γ</b></td>
+                <td>Delta 随标的价格变化的速率</td>
+                <td class="mono">平价期权最高</td>
+                <td>Gamma 高 = Delta 变化快 = 对冲难度大，临近到期时尤其剧烈</td>
+              </tr>
+              <tr>
+                <td><b class="gold">Theta Θ</b></td>
+                <td>每过一天，期权价格损失多少</td>
+                <td class="mono up">买方为负<br>卖方为正</td>
+                <td class="up">时间是买方的敌人。到期前最后几天衰减最快</td>
+              </tr>
+              <tr>
+                <td><b class="gold">Vega ν</b></td>
+                <td>隐含波动率变动 1%，期权价格变动多少</td>
+                <td class="mono">期限越长越高</td>
+                <td>波动率上升利好买方，下降利好卖方</td>
+              </tr>
+              <tr>
+                <td><b class="gold">Rho ρ</b></td>
+                <td>无风险利率变动对价格的影响</td>
+                <td class="mono">通常很小</td>
+                <td>短期期权中影响可忽略，长期期权需关注</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout info" style="margin-top:30px">
+          <div class="callout-t">一个直觉理解</div>
+          <p>把这五个字母想成体检报告：<b>Delta 是方向、Gamma 是方向变化的加速度、Theta 是每天流出的租金、Vega 是对波动率的敏感度</b>。
+          专业期权交易者管理的是这一组敞口，而不是单纯赌涨跌。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 09 IV -->
+      <section id="iv">
+        <div class="sec-head">
+          <span class="sec-num">09</span>
+          <h2>隐含波动率 <span class="cn">· 市场在害怕什么</span></h2>
+        </div>
+
+        <p class="lead">
+          期权的定价模型需要一个「波动率」输入。但未来的波动率没人知道，
+          于是市场用当前期权价格<b>反推</b>出一个波动率 —— 这就是隐含波动率（IV）。它是市场对未来波动的预期。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:32px">
+          <table>
+            <thead><tr><th>IV 水平</th><th>市场状态</th><th>期权价格</th><th>策略倾向</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono down">低（&lt; 40%）</td>
+                <td>平静、盘整</td>
+                <td>便宜</td>
+                <td class="gold">倾向于买入期权（成本低），做多波动率</td>
+              </tr>
+              <tr>
+                <td class="mono">中（40%~70%）</td>
+                <td>正常</td>
+                <td>合理</td>
+                <td>依方向判断选择策略</td>
+              </tr>
+              <tr>
+                <td class="mono up">高（&gt; 70%）</td>
+                <td>恐慌、剧烈波动</td>
+                <td class="up">昂贵</td>
+                <td class="gold">倾向于卖出期权（收高额权利金），做空波动率</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <div class="callout-t">波动率微笑</div>
+          <p>理论上，同一到期日的期权应有相同的 IV。但实际市场中，<b>远离平值的行权价 IV 明显更高</b>，形成一条上扬的「微笑」曲线。
+          原因很简单：市场愿意为极端行情（暴涨暴跌）支付额外溢价 —— 这就是人们买保险的心理。</p>
+        </div>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-16-9"><img src="../assets/img/terminal.jpg" alt="交易终端"></div>
+          <figcaption>专业期权交易界面上，隐含波动率曲面（IV Surface）与希腊字母敞口同时呈现。风险管理在这些参数上进行，而非价格图表上。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 10 风险 -->
+      <section id="risk">
+        <div class="sec-head">
+          <span class="sec-num">10</span>
+          <h2>风险清单 <span class="cn">· 必须逐条核对</span></h2>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>风险类型</th><th>具体表现</th><th>严重程度</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>强平风险</b></td>
+                <td>价格短时插针触及强平价，仓位被清算后价格又回到原方向</td>
+                <td class="up">极高</td>
+              </tr>
+              <tr>
+                <td><b>资金费率侵蚀</b></td>
+                <td>长期持仓被费率持续扣费，即使价格不跌本金也在流失</td>
+                <td class="up">高</td>
+              </tr>
+              <tr>
+                <td><b>流动性与滑点</b></td>
+                <td>强平时以市价执行，小币种可能以远差于预期的价格成交</td>
+                <td class="up">高</td>
+              </tr>
+              <tr>
+                <td><b>平台风险</b></td>
+                <td>交易所挪用资产、跑路、被攻击、被监管冻结</td>
+                <td class="up">极高</td>
+              </tr>
+              <tr>
+                <td><b>ADL 自动减仓</b></td>
+                <td>即使盈利，也可能被系统强制平仓以填补穿仓缺口</td>
+                <td class="warn">中高</td>
+              </tr>
+              <tr>
+                <td><b>预言机 / 指数偏离</b></td>
+                <td>标记价格被操纵，导致异常的强平事件</td>
+                <td class="warn">中</td>
+              </tr>
+              <tr>
+                <td><b>智能合约漏洞</b></td>
+                <td>链上协议被攻击，资金被转移（DeFi 场景）</td>
+                <td class="up">高</td>
+              </tr>
+              <tr>
+                <td><b>监管与法律</b></td>
+                <td>政策变化导致交易受限、资产无法提取</td>
+                <td class="up">高</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger" style="margin-top:32px">
+          <div class="callout-t">最后一句实话</div>
+          <p>杠杆与衍生品是专业工具，不是致富捷径。它们在设计上就是让<b>多数参与者亏损</b>的结构 ——
+          因为有手续费、资金费、价差这些持续的成本抽取。
+          在充分理解强平机制、成本结构和自己的风险承受能力之前，任何杠杆操作都应该被推迟。</p>
+        </div>
+
+        <div style="margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <a href="trading.html" class="btn ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 12H5M11 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            上一章 · 交易与撮合
+          </a>
+          <a href="build.html" class="btn">
+            下一章 · 平台开发
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。站内数据均为模拟。</p>
+      <p>第五章 · 期权与杠杆</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第二章 · 形成与共识演进 — Ledger</title>
+<meta name="description" content="工作量证明、权益证明、分叉与最终性：区块链如何从一份白皮书走向全球共识网络。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html">区块链原理</a>
+      <a href="evolution.html" class="active">演进与共识</a>
+      <a href="cashflow.html">资金流路径</a>
+      <a href="trading.html">交易与撮合</a>
+      <a href="derivatives.html">期权与杠杆</a>
+      <a href="build.html">平台开发</a>
+      <a href="glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>第二章</div>
+    <span class="sec-num">CHAPTER II</span>
+    <h1 class="display">Consensus</h1>
+    <p style="font-family:var(--serif-cn);font-size:clamp(24px,3.4vw,34px);color:var(--fg);margin-top:2px;font-weight:300">形成与共识演进 —— 如何让互不信任的机器达成一致</p>
+    <p class="lead">
+      第一章我们有了密码学工具：哈希保证了数据不可篡改，签名保证了交易无法伪造。
+      但还有最后一个、也是最难的问题没解决：<b>谁来决定下一个区块由谁出、装哪些交易、按什么顺序？</b>
+      在没有中心的情况下，这个决定只能通过某种「共识机制」产生。这一章讲清楚几种主流方案的取舍。
+    </p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:52px">
+  <div class="doc-layout">
+
+    <aside class="toc">
+      <div class="toc-t">本章目录</div>
+      <a href="#problem">01 · 拜占庭将军问题</a>
+      <a href="#btc">02 · 比特币的诞生</a>
+      <a href="#pow">03 · 工作量证明 PoW</a>
+      <a href="#pos">04 · 权益证明 PoS</a>
+      <a href="#compare">05 · 共识机制对比</a>
+      <a href="#fork">06 · 分叉与最终性</a>
+      <a href="#attack">07 · 攻击成本与经济性</a>
+      <a href="#timeline">08 · 技术演进时间线</a>
+    </aside>
+
+    <main>
+
+      <!-- 01 -->
+      <section id="problem" style="padding-top:0">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2>拜占庭将军问题</h2>
+        </div>
+        <p class="lead">
+          这是分布式系统里最经典的难题，1982 年由 Lamport 等人提出。
+          设想若干支拜占庭军队包围一座城，将军们只能靠信使通信。他们必须统一决定「进攻」还是「撤退」——
+          但其中可能有叛徒，会散布矛盾的消息。
+        </p>
+        <p style="margin-top:20px">
+          结论令人沮丧也令人清醒：<b style="color:var(--fg-strong)">如果叛徒数量达到或超过三分之一，忠将们就无法保证达成一致。</b>
+          同理，任何要求「全体一致」的分布式协议，只要 1/3 的节点作恶，就会失效。
+        </p>
+
+        <div class="grid g3" style="margin-top:34px">
+          <div class="card">
+            <span class="tag">忠实</span>
+            <h3 style="margin-top:14px;font-size:17px">诚实节点</h3>
+            <p>严格遵守协议，转发真实消息，按规则投票。</p>
+          </div>
+          <div class="card" style="border-color:rgba(229,83,75,.22)">
+            <span class="tag up">故障</span>
+            <h3 style="margin-top:14px;font-size:17px">宕机节点</h3>
+            <p>直接掉线不响应。相对好处理 —— 这类故障可以用多数投票机制覆盖掉。</p>
+          </div>
+          <div class="card" style="border-color:rgba(229,83,75,.36)">
+            <span class="tag up">恶意</span>
+            <h3 style="margin-top:14px;font-size:17px">拜占庭节点</h3>
+            <p>故意撒谎、伪造消息、选择性转发。这是最难对付的一类，也是共识机制真正要防范的。</p>
+          </div>
+        </div>
+
+        <div class="callout" style="margin-top:32px">
+          <div class="callout-t">中本聪的关键突破</div>
+          <p>他不试图在「一轮投票」里解决问题，而是<b>把时间拉长</b>：让写区块变贵（消耗算力），让最长链代表真实历史，让攻击者必须持续投入并超过所有诚实节点。于是「概率性最终性」取代了「绝对一致性」—— 冲突不是被解决，而是被经济成本压制。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 02 比特币诞生 -->
+      <section id="btc">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2>比特币的诞生</h2>
+        </div>
+        <div class="two-col">
+          <div>
+            <p class="lead">
+              2008 年 10 月 31 日，一个署名中本聪（Satoshi Nakamoto）的匿名作者，在一个密码学邮件列表里发布了一篇九页的白皮书：
+              《比特币：一种点对点的电子现金系统》。
+            </p>
+            <p style="margin-top:18px;color:var(--fg-muted)">
+              它的核心贡献不是发明了新密码学，而是第一次<b>把密码学、博弈论与经济激励组装成一个能自我维持的自治系统</b>。
+              2009 年 1 月 3 日，创世区块被挖出，第一条链开始运行 —— 至今没有停止过一秒。
+            </p>
+            <ul class="list-clean" style="margin-top:22px">
+              <li><strong>总量上限</strong> · 2100 万枚，写入协议，无法超发</li>
+              <li><strong>出块间隔</strong> · 目标 10 分钟一个，难度自动调整</li>
+              <li><strong>减半机制</strong> · 约每 4 年区块奖励减半，直至归零</li>
+              <li><strong>匿名创始人</strong> · 中本聪 2010 年后彻底消失，身份至今未知</li>
+            </ul>
+          </div>
+          <div>
+            <figure style="margin-top:0">
+              <div class="ratio r-4-3"><img src="../assets/img/btc-coin.jpg" alt="比特币硬币"></div>
+              <figcaption>比特币的意义在于它的「制度设计」——货币发行规则被写入代码，任何人（包括开发者）都无法单方面改动。</figcaption>
+            </figure>
+            <figure>
+              <div class="ratio r-16-9"><img src="../assets/img/mining-rig.jpg" alt="矿机"></div>
+              <figcaption>从 CPU 到 GPU、FPGA，再到专用 ASIC 矿机。挖矿演化成了重资产、拼电价的工业化生意。</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 03 PoW -->
+      <section id="pow">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2>工作量证明 <span class="cn">· Proof of Work</span></h2>
+        </div>
+        <p class="lead">
+          PoW 的逻辑极其朴素：<b>想获得记账权，就先付出一笔不可回收的代价 —— 电力和算力。</b>
+        </p>
+
+        <div class="steps" style="margin-top:34px">
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>收集交易，计算默克尔根</h4>
+              <p>从内存池挑选交易，组装候选区块，计算一个代表全部交易内容的默克尔根。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>构造区块头</h4>
+              <p>区块头含：版本号、上一区块哈希、默克尔根、时间戳、难度目标、以及一个可自由改动的 <code>nonce</code>（随机数）。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>反复试 nonce</h4>
+              <p>对区块头做 SHA-256（比特币是两次），看结果是否小于难度目标。<b>不满足就换一个 nonce 重试。</b>这个过程只能暴力枚举，没有任何捷径。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>找到即广播</h4>
+              <p>谁先找到符合条件的值，就把区块广播出去。其他节点验证一次哈希即可确认（验证极快，但找出极难 —— 这是不对称性的精髓）。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>获得区块奖励</h4>
+              <p>成功出块者获得新发行的币 + 该区块所有交易的手续费。这就是比特币的「发行」方式 —— 没有人印钱，是算力换来的。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:34px">
+          <div class="callout-t">难度调整</div>
+          <p>协议每 2016 个区块（约两周）调整一次难度目标，让平均出块时间保持在 10 分钟。全网算力增加，难度上升；算力减少，难度下降。<b>这是一个自动的负反馈调节系统</b>，不需要任何人干预。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 04 PoS -->
+      <section id="pos">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2>权益证明 <span class="cn">· Proof of Stake</span></h2>
+        </div>
+        <p class="lead">
+          PoW 的代价是巨大的能源消耗。PoS 提出一个替代思路：
+          <b>把「抵押经济价值」作为门槛，而不是「消耗电力」。</b>想获得出块权，先质押代币；作恶则质押被罚没。
+        </p>
+
+        <div class="two-col" style="margin-top:34px">
+          <div>
+            <h3 style="font-size:19px;margin-bottom:16px">验证者的职责</h3>
+            <ul class="list-clean">
+              <li><strong>质押</strong> · 锁定一定数量代币作为保证金，进入验证者集合</li>
+              <li><strong>提议</strong> · 按算法被伪随机选中，出块并广播</li>
+              <li><strong>投票</strong> · 对他人提议的区块投票确认（证明），积累最终性</li>
+              <li><strong>惩罚 Slashing</strong> · 离线、双重签名、攻击行为都会被扣除部分质押</li>
+              <li><strong>奖励</strong> · 正常履职获得增发奖励 + 手续费</li>
+            </ul>
+          </div>
+          <div>
+            <figure style="margin-top:0">
+              <div class="ratio r-4-3"><img src="../assets/img/network-abstract.png" alt="网络结构"></div>
+              <figcaption>PoS 把安全预算从「电力市场」换成「资本市场」。攻击者要付出的是可被没收的资产，而不是沉没的电费。</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="callout warn" style="margin-top:30px">
+          <div class="callout-t">PoS 的争议点</div>
+          <p>批评者认为：<b>富者愈富</b>（质押越多、收益越多）、<b>无成本攻击</b>（理论上可以在多条分叉上同时下注，因为不需要消耗外部资源）、以及对大质押池的中心化担忧。支持者则指出，罚没机制恰恰让「同时下注」变成高风险行为，只要罚没金额足够大，理性参与者不会尝试。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 05 对比 -->
+      <section id="compare">
+        <div class="sec-head">
+          <span class="sec-num">05</span>
+          <h2>共识机制横向对比</h2>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>维度</th><th>PoW 工作量证明</th><th>PoS 权益证明</th><th>DPoS 委托权益</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>安全来源</b></td>
+                <td>外部资源（电力、硬件）</td>
+                <td>内部资源（质押代币）</td>
+                <td>投票选举的少数见证人</td>
+              </tr>
+              <tr>
+                <td><b>能耗</b></td>
+                <td class="up">极高</td>
+                <td class="down">低（约降低 99%）</td>
+                <td class="down">很低</td>
+              </tr>
+              <tr>
+                <td><b>出块速度</b></td>
+                <td>约 10 分钟（比特币）</td>
+                <td>12 秒（以太坊）</td>
+                <td>0.5~3 秒</td>
+              </tr>
+              <tr>
+                <td><b>最终性</b></td>
+                <td>概率性，需多个确认</td>
+                <td>确定性，约 12~15 分钟</td>
+                <td>确定性，很快</td>
+              </tr>
+              <tr>
+                <td><b>去中心化程度</b></td>
+                <td class="down">较分散（任何人可加入）</td>
+                <td>中等（受质押门槛影响）</td>
+                <td class="up">较低（少数节点出块）</td>
+              </tr>
+              <tr>
+                <td><b>攻击成本</b></td>
+                <td>需掌握 51% 算力 + 持续电力</td>
+                <td>需掌握 33%~51% 质押量</td>
+                <td>需控制多数投票权</td>
+              </tr>
+              <tr>
+                <td><b>典型代表</b></td>
+                <td class="mono">Bitcoin, Litecoin</td>
+                <td class="mono">Ethereum, Solana</td>
+                <td class="mono">EOS, TRON</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout" style="margin-top:30px">
+          <div class="callout-t">没有免费的午餐</div>
+          <p>这三者不是「先进程度」的排序，而是<b>在不同目标下的取舍</b>。追求最大程度抗审查，PoW 仍有优势；追求性能与可编程性，PoS 更合适；追求极致吞吐，就得接受见证人数量减少带来的中心化。选择哪一种，取决于这条链想要什么。</p>
+        </div>
+
+        <div class="tbl-wrap" style="margin-top:34px">
+          <table>
+            <thead><tr><th>对比项</th><th>传统金融清算</th><th>链上结算</th></tr></thead>
+            <tbody>
+              <tr><td>结算周期</td><td>T+1 或 T+2（跨行跨境更久）</td><td class="gold">数十秒到数分钟</td></tr>
+              <tr><td>运营时间</td><td>仅工作日、仅营业时段</td><td class="gold">7×24 全年无休</td></tr>
+              <tr><td>信任基础</td><td>中心清算机构 + 法律</td><td class="gold">密码学 + 经济激励</td></tr>
+              <tr><td>可回滚性</td><td>可撤销、可冻结、可追索</td><td class="up">确认后基本不可逆</td></tr>
+              <tr><td>准入</td><td>需身份、账户、资质</td><td class="gold">只需一个私钥（无需许可）</td></tr>
+              <tr><td>跨境成本</td><td>高，多层代理行</td><td class="gold">与地理距离无关</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 06 分叉 -->
+      <section id="fork">
+        <div class="sec-head">
+          <span class="sec-num">06</span>
+          <h2>分叉与最终性</h2>
+          <p>网络是全球分布的，区块传播需要时间。两个矿工可能几乎同时出块 —— 这时就会出现两条链。怎么收敛？</p>
+        </div>
+
+        <div class="grid g2" style="margin-top:34px">
+          <div class="card">
+            <span class="tag">软分叉</span>
+            <h3 style="margin-top:14px">Soft Fork · 向后兼容</h3>
+            <p>收紧规则。新区块仍能被旧节点接受，只是旧节点不理解的部分被忽略。不升级也能继续参与，但无法使用新特性。</p>
+            <p style="margin-top:14px;font-size:13px;color:var(--fg-faint)">例：比特币的隔离见证（SegWit）</p>
+          </div>
+          <div class="card">
+            <span class="tag gold">硬分叉</span>
+            <h3 style="margin-top:14px">Hard Fork · 不兼容分裂</h3>
+            <p>放宽或改变规则。旧节点会拒绝新块，链就此一分为二，各自延续。持有者通常在两条链上各获得一份资产。</p>
+            <p style="margin-top:14px;font-size:13px;color:var(--fg-faint)">例：以太坊 The Merge、BCH 从 BTC 分裂</p>
+          </div>
+        </div>
+
+        <p style="margin-top:34px">
+          <b style="color:var(--fg-strong)">最长链原则</b>：当出现两条链时，节点总是跟随「累计工作量最大」的那条，而不是简单的区块数最多。
+          较短的那条会被丢弃，其上的交易退回到内存池等待重新打包 —— 这就是「重组（Reorg）」。
+        </p>
+        <p style="margin-top:18px">
+          <b style="color:var(--fg-strong)">最终性（Finality）</b>：交易被写入区块后不算最终确定。
+          每多一个后续区块，回滚所需算力就翻倍。<b>6 个确认后，回滚概率已低到可以忽略</b>，所以交易所通常以此为入账标准。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>确认数</th><th>回滚所需算力占比</th><th>常见处理</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td>约 50%（重新挖一个块）</td><td>部分小额场景可接受</td></tr>
+              <tr><td class="mono">3</td><td>已极难，但非不可能</td><td>中等金额入账门槛</td></tr>
+              <tr><td class="mono">6</td><td>实际不可行</td><td class="gold">主流交易所标准</td></tr>
+              <tr><td class="mono">12+</td><td>无实际意义</td><td>大额充值与机构结算</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 07 攻击经济性 -->
+      <section id="attack">
+        <div class="sec-head">
+          <span class="sec-num">07</span>
+          <h2>为什么 51% 攻击在数学上不划算</h2>
+        </div>
+        <p class="lead">
+          「掌握 51% 算力就能控制网络」这个说法流传很广，但它忽略了一件事：<b>控制 ≠ 获利。</b>
+        </p>
+
+        <div class="grid g2" style="margin-top:32px">
+          <div>
+            <h3 style="font-size:18px;margin-bottom:16px">攻击者能做什么</h3>
+            <ul class="list-clean">
+              <li><strong>双花</strong> · 撤回自己已发出的交易，把同一笔钱再花一次</li>
+              <li><strong>交易审查</strong> · 拒绝打包特定地址的交易</li>
+              <li><strong>链重组</strong> · 用更长的链覆盖已确认的历史</li>
+            </ul>
+          </div>
+          <div>
+            <h3 style="font-size:18px;margin-bottom:16px">攻击者不能做什么</h3>
+            <ul class="list-clean">
+              <li><strong>偷别人币</strong> · 没有私钥就无法伪造签名，这是密码学保证的</li>
+              <li><strong>凭空造币</strong> · 超出协议上限的区块会被所有节点拒绝</li>
+              <li><strong>改历史而不留痕</strong> · 重组本身是公开可见的信号</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:32px">
+          <div class="callout-t">真正的约束：攻击的收益 &lt; 成本</div>
+          <p>要持续压制一条大市值 PoW 链，攻击者需要长期持有超过全网一半的算力，这意味着天文数字的硬件采购与电费支出。而一旦攻击成功，市场信心崩塌、币价暴跌 —— <b>攻击者手里的币和矿机也会一起贬值</b>。这是博弈论层面的自毁机制。</p>
+          <p>历史上确实发生过 51% 攻击，但都集中在小市值、算力总量低的链上，攻击成本仅需几十万美元。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 08 时间线 -->
+      <section id="timeline">
+        <div class="sec-head">
+          <span class="sec-num">08</span>
+          <h2>技术演进时间线</h2>
+        </div>
+
+        <div class="timeline">
+          <div class="tl-item hi">
+            <div class="tl-year">2008 · 白皮书</div>
+            <h4>《比特币：一种点对点的电子现金系统》</h4>
+            <p>中本聪提出用工作量证明 + 最长链 + 经济激励解决双重支付问题。九页文档，改变了此后十几年的金融技术走向。</p>
+          </div>
+          <div class="tl-item hi">
+            <div class="tl-year">2009 · 创世区块</div>
+            <h4>比特币网络正式启动</h4>
+            <p>1 月 3 日，创世区块包含一句泰晤士报头条：「Chancellor on brink of second bailout for banks」，作为对中心化金融体系的注脚。</p>
+          </div>
+          <div class="tl-item">
+            <div class="tl-year">2013 · 可编程化</div>
+            <h4>以太坊白皮书发布</h4>
+            <p>Vitalik Buterin 提出在区块链上加入图灵完备的虚拟机。区块链从「转账账本」升级为「可编程的状态机」。</p>
+          </div>
+          <div class="tl-item">
+            <div class="tl-year">2015 · 智能合约落地</div>
+            <h4>以太坊主网上线</h4>
+            <p>ERC-20 标准随后出现，催生了 ICO 浪潮，也第一次让「在链上发行资产」变成几行代码的事。</p>
+          </div>
+          <div class="tl-item hi">
+            <div class="tl-year">2020~2021 · DeFi 与衍生品</div>
+            <h4>去中心化交易与协议化杠杆</h4>
+            <p>自动做市商（AMM）、借贷协议、链上永续合约相继出现。交易不再必须经过中心化平台，杠杆与期权开始在链上原生实现。</p>
+          </div>
+          <div class="tl-item hi">
+            <div class="tl-year">2022 · 共识切换</div>
+            <h4>以太坊 The Merge</h4>
+            <p>以太坊从 PoW 完全切换到 PoS，能耗降低约 99.95%。这是区块链史上最大规模的一次共识机制迁移，且零停机完成。</p>
+          </div>
+          <div class="tl-item">
+            <div class="tl-year">2024 至今 · 基础设施化</div>
+            <h4>扩容、合规与机构入场</h4>
+            <p>Layer 2 汇总、模块化区块链、现货 ETF 相继落地。行业重心从「能不能用」转向「能不能承载主流资金规模」。</p>
+          </div>
+        </div>
+
+        <div style="margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <a href="foundation.html" class="btn ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 12H5M11 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            上一章 · 区块链原理
+          </a>
+          <a href="cashflow.html" class="btn">
+            下一章 · 资金流路径
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。站内数据均为模拟。</p>
+      <p>第二章 · 形成与共识演进</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

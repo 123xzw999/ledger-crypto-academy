@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第四章 · 交易与撮合 — Ledger</title>
+<meta name="description" content="订单簿、撮合优先级、延迟优化、7×24 永不闭市、清算与结算：一个交易平台的核心机制。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html">区块链原理</a>
+      <a href="evolution.html">演进与共识</a>
+      <a href="cashflow.html">资金流路径</a>
+      <a href="trading.html" class="active">交易与撮合</a>
+      <a href="derivatives.html">期权与杠杆</a>
+      <a href="build.html">平台开发</a>
+      <a href="glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>第四章</div>
+    <span class="sec-num">CHAPTER IV</span>
+    <h1 class="display">Matching</h1>
+    <p style="font-family:var(--serif-cn);font-size:clamp(24px,3.4vw,34px);color:var(--fg);margin-top:2px;font-weight:300">交易与撮合 —— 价格是怎么被决定的</p>
+    <p class="lead">
+      为什么虚拟币可以「任何时候、任何人」交易？这背后是一套被称为订单簿的机制，
+      加上一个能在微秒内完成匹配的撮合引擎，以及一套在链下高速运转、在链上最终结算的分层结构。
+      这一章拆开这套机器，看清价格究竟由谁决定。
+    </p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:52px">
+  <div class="doc-layout">
+
+    <aside class="toc">
+      <div class="toc-t">本章目录</div>
+      <a href="#why">01 · 为什么可以随时交易</a>
+      <a href="#orderbook">02 · 订单簿机制</a>
+      <a href="#match">03 · 撮合演示 · 交互</a>
+      <a href="#types">04 · 订单类型</a>
+      <a href="#chart">05 · K 线图 · 交互</a>
+      <a href="#latency">06 · 延迟与性能</a>
+      <a href="#settle">07 · 清算与结算</a>
+      <a href="#amm">08 · AMM：另一种方式</a>
+    </aside>
+
+    <main>
+
+      <!-- 01 -->
+      <section id="why" style="padding-top:0">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2>为什么可以「任何时候、任何人」交易</h2>
+        </div>
+        <p class="lead">
+          传统证券市场有开市闭市，因为需要中心清算机构在收盘后做统一结算。
+          虚拟币市场取消了这道工序，换成三种机制的组合。
+        </p>
+
+        <div class="grid g3" style="margin-top:34px">
+          <div class="card gold-top">
+            <span class="tag gold">机制一</span>
+            <h3 style="margin-top:14px;font-size:17px">7×24 无休市</h3>
+            <p>没有中心清算所需要在固定时点轧账。账户余额是数据库里的一条记录，任何时刻都能即时变更。<b>「结算」被拆成了每次成交后立即执行的账务更新。</b></p>
+          </div>
+          <div class="card gold-top">
+            <span class="tag gold">机制二</span>
+            <h3 style="margin-top:14px;font-size:17px">无需许可准入</h3>
+            <p>注册一个账户就能交易全球流动性，没有席位、没有会员资格、没有地域限制（但受当地法规约束）。任何人只要能连上网络，就能参与。</p>
+          </div>
+          <div class="card gold-top">
+            <span class="tag gold">机制三</span>
+            <h3 style="margin-top:14px;font-size:17px">全球流动性池</h3>
+            <p>不同时区的交易者接力下单，亚洲休市时欧美接上。<b>价格发现从未中断</b>，也就没有「隔夜跳空」这种传统市场的典型现象。</p>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:32px">
+          <div class="callout-t">代价是什么</div>
+          <p>永不闭市意味着<b>风险管理必须实时进行</b>。传统市场可以在收盘后调整保证金、发追保通知；币圈必须在几毫秒内自动完成强平，否则穿仓损失会由交易所承担。这也解释了为什么币圈的自动减仓（ADL）和保险基金机制比传统市场激进得多。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 02 订单簿 -->
+      <section id="orderbook">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2>订单簿 <span class="cn">· 市场的全部真相</span></h2>
+        </div>
+        <p class="lead">
+          订单簿就是一张实时更新的买卖意向表。<b>买单</b>（Bid）和<b>卖单</b>（Ask）分列两边，各自按价格从优到劣排列。
+          最高买价与最低卖价之间的差距叫<b>价差（Spread）</b>。
+        </p>
+
+        <div class="kv-inline" style="margin-top:30px">
+          <div><dt>最优买价 Best Bid</dt><dd>67400.00</dd></div>
+          <div><dt>最优卖价 Best Ask</dt><dd>67440.00</dd></div>
+          <div><dt>价差 Spread</dt><dd>40.00</dd></div>
+          <div><dt>价差率</dt><dd>0.059%</dd></div>
+        </div>
+
+        <h3 style="font-size:19px;margin:36px 0 16px">撮合的两条铁律</h3>
+        <div class="grid g2">
+          <div class="card">
+            <h3 style="font-size:17px">价格优先</h3>
+            <p>买单出价高的优先成交；卖单要价低的优先成交。想插队，就必须给出更好的价格 —— 这是市场效率的来源。</p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:17px">时间优先</h3>
+            <p>价格相同的情况下，先提交的订单先成交。这条规则保护了挂单的做市商，鼓励他们提供流动性 —— 否则没人愿意挂单。</p>
+          </div>
+        </div>
+
+        <div class="callout" style="margin-top:30px">
+          <div class="callout-t">流动性从哪里来</div>
+          <p>一个健康的订单簿需要有人持续在两边挂单。这些人是<b>做市商</b>：他们同时报出买价和卖价，赚取价差，同时承担库存风险。交易所通常给他们手续费返还，作为提供流动性的对价。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 03 撮合演示 -->
+      <section id="match">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2>撮合引擎演示 <span class="cn">· 手动推送一笔买单</span></h2>
+          <p>点击按钮推送一笔市价买单，观察它如何按「价格优先、时间优先」的顺序逐层吃掉卖盘，成交后价格如何移动。</p>
+        </div>
+
+        <div id="obLab"></div>
+
+        <p style="margin-top:26px">
+          注意几件事：<b>市价单会一直吃单直到填满或卖盘耗尽</b>；每吃掉一层，最优卖价就往上抬一档 —— 这就是「滑点」的来源。
+          如果卖盘深度不足，一笔大额买单会把价格瞬间推高好几个百分点，这在流动性差的币种上非常常见。
+        </p>
+
+        <div class="callout warn" style="margin-top:28px">
+          <div class="callout-t">滑点与冲击成本</div>
+          <p>你看到的「最新价」只是上一笔成交的价格，<b>不等于你能成交的价格</b>。下单前应查看订单簿深度，估算自己这笔单子的平均成交价。大额交易通常拆分成多笔分批执行，就是为了摊薄冲击成本。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 04 订单类型 -->
+      <section id="types">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2>订单类型 <span class="cn">· 表达交易意图的语法</span></h2>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>类型</th><th>行为</th><th>优点</th><th>缺点</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>市价单 Market</b></td>
+                <td>立即以对手方最优价成交</td>
+                <td class="down">成交速度最快，必成交</td>
+                <td class="up">价格不可控，有滑点</td>
+              </tr>
+              <tr>
+                <td><b>限价单 Limit</b></td>
+                <td>指定价格，达到才成交，否则挂在订单簿上</td>
+                <td class="down">价格可控，可作为挂单享受更低手续费</td>
+                <td class="up">可能长时间不成交</td>
+              </tr>
+              <tr>
+                <td><b>止损单 Stop</b></td>
+                <td>价格触及触发值后转为市价单</td>
+                <td class="down">自动控制最大亏损</td>
+                <td class="up">极端行情下可能大幅滑点甚至无法触发</td>
+              </tr>
+              <tr>
+                <td><b>止盈单 Take-Profit</b></td>
+                <td>价格触及预设值后了结持仓</td>
+                <td class="down">自动锁定利润</td>
+                <td class="up">可能过早离场错失后续行情</td>
+              </tr>
+              <tr>
+                <td><b>Post-Only</b></td>
+                <td>只允许作为挂单，若会立即成交则被拒绝</td>
+                <td class="down">保证成为 Maker，拿返佣</td>
+                <td class="up">可能被拒单</td>
+              </tr>
+              <tr>
+                <td><b>IOC / FOK</b></td>
+                <td>IOC 立即成交剩余取消；FOK 必须全部成交否则整单取消</td>
+                <td class="down">精确控制成交条件</td>
+                <td class="up">流动性不足时容易失败</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout" style="margin-top:30px">
+          <div class="callout-t">Maker 与 Taker</div>
+          <p><b>Taker</b>（吃单方）主动吃掉订单簿上已有的挂单，支付较高的手续费。<b>Maker</b>（挂单方）提供流动性，享受更低费率甚至有返佣。交易所用这个价差结构来激励做市 —— 流动性越好，整个市场的交易成本越低。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 05 K线 -->
+      <section id="chart">
+        <div class="sec-head">
+          <span class="sec-num">05</span>
+          <h2>K 线图 <span class="cn">· 价格的时间切片</span></h2>
+          <p>切换下面三种行情形态，观察价格结构的变化。K 线把每个时间段内的四个价格压缩成一根柱。</p>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-bar">
+            <span class="sym">BTC/USDT</span>
+            <span class="px" data-live="px">—</span>
+            <span class="chg" data-live="chg">—</span>
+            <span class="sp">
+              <button class="on" data-regen="mixed">震荡上行</button>
+              <button data-regen="bull">单边牛市</button>
+              <button data-regen="bear">单边熊市</button>
+              <button data-regen="chop">横盘整理</button>
+            </span>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas class="candles" data-spec="mixed"></canvas>
+          </div>
+        </div>
+
+        <div class="grid g4" style="margin-top:30px">
+          <div class="card" style="padding:20px">
+            <h3 style="font-size:15px;color:var(--up)">开盘价 Open</h3>
+            <p style="font-size:13px">该周期第一笔成交价</p>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="font-size:15px;color:var(--up)">最高价 High</h3>
+            <p style="font-size:13px">该周期内最高成交价，K 线上影线顶点</p>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="font-size:15px">最低价 Low</h3>
+            <p style="font-size:13px">该周期内最低成交价，下影线底点</p>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="font-size:15px">收盘价 Close</h3>
+            <p style="font-size:13px">该周期最后一笔成交价，技术分析最重要</p>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:26px">
+          <div class="callout-t">颜色约定</div>
+          <p>本站所有图表采用<b>中国市场的颜色习惯</b>：<span class="up">红色表示上涨</span>，<span class="down">绿色表示下跌</span>。这与欧美市场恰好相反，看外盘图表时务必先确认颜色约定。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 06 延迟 -->
+      <section id="latency">
+        <div class="sec-head">
+          <span class="sec-num">06</span>
+          <h2>延迟 <span class="cn">· 为什么要在交易所隔壁放服务器</span></h2>
+        </div>
+        <p class="lead">
+          在交易领域，速度直接等于钱。同样的策略，快 1 毫秒可能就多赚几个基点 —— 因为你的订单能排在别人前面。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:32px">
+          <table>
+            <thead><tr><th>层级</th><th>延迟量级</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><b>同机房内网</b></td><td class="mono gold">&lt; 100 微秒</td><td>服务器与撮合引擎在同一数据中心，通过专线直连</td></tr>
+              <tr><td><b>同城光纤</b></td><td class="mono">约 1 毫秒</td><td>东京到东京，或上海到上海</td></tr>
+              <tr><td><b>跨洲光缆</b></td><td class="mono">100~250 毫秒</td><td>东京到纽约约 150ms，受光速物理限制</td></tr>
+              <tr><td><b>公网普通连接</b></td><td class="mono up">100~400 毫秒</td><td>家用宽带，路由跳数多、抖动大</td></tr>
+              <tr><td><b>移动网络</b></td><td class="mono up">100~500 毫秒</td><td>4G/5G 基站切换时会明显抖动</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top:28px">
+          机构交易者会把服务器<b>托管（Colocation）在交易所机房内</b>，把延迟压到微秒级。这就是为什么散户在下单速度上永远处于劣势 ——
+          你从家按下按钮，信号绕地球半圈到达机房，竞争对手早已在 100 微秒内完成了同样的操作。
+        </p>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-16-9"><img src="../assets/img/monitor-data.jpg" alt="行情监控屏"></div>
+          <figcaption>行情推送要在毫秒级把成千上万次报价变化广播给数十万连接。这要求后端使用专门优化的推送架构，而不是普通 HTTP 请求。</figcaption>
+        </figure>
+
+        <figure>
+          <div class="ratio r-21-9"><img src="../assets/img/chart-detail.jpg" alt="K线与指标"></div>
+          <figcaption>专业交易界面上，K 线、量能、指标与深度图并存。每一处视觉呈现的背后，都是撮合事件流的一次映射。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 07 清算结算 -->
+      <section id="settle">
+        <div class="sec-head">
+          <span class="sec-num">07</span>
+          <h2>清算与结算 <span class="cn">· 链下高速，链上最终</span></h2>
+        </div>
+
+        <p class="lead">
+          这是理解中心化交易所的关键：<b>你在交易所账户里看到的余额，并不是链上的资产，而是交易所数据库里的一条记录。</b>
+          你在平台上做了一万笔交易，链上可能只发生了两次转账 —— 一次充币，一次提币。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:32px">
+          <table>
+            <thead><tr><th>环节</th><th>在哪里发生</th><th>速度</th><th>作用</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>撮合</b></td>
+                <td class="gold">交易所内存 / 数据库</td>
+                <td class="mono">微秒~毫秒</td>
+                <td>决定成交价格与数量</td>
+              </tr>
+              <tr>
+                <td><b>清算 Clearing</b></td>
+                <td class="gold">交易所账务系统</td>
+                <td class="mono">毫秒~秒</td>
+                <td>更新双方余额、计算手续费、划转盈亏</td>
+              </tr>
+              <tr>
+                <td><b>结算 Settlement</b></td>
+                <td class="up">区块链</td>
+                <td class="mono up">分钟~小时</td>
+                <td>只有在充币、提币时才真正发生</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger" style="margin-top:30px">
+          <div class="callout-t">这带来一个至关重要的风险</div>
+          <p>因为资产实际托管在交易所手里，你承担的是<b>交易所的信用风险</b>，而不是区块链的安全性。
+          一旦交易所被黑客攻破、被查封、或挪用资产，你的「余额」可能瞬间归零 —— 这类事件在历史上反复发生。
+          「Not your keys, not your coins」这句话针对的正是这种情况。</p>
+        </div>
+
+        <div class="callout info">
+          <div class="callout-t">为什么不全放链上</div>
+          <p>因为链上确认太慢、手续费太高，无法支撑每秒数十万笔撮合。于是行业形成了分层：<b>链下做高速撮合与账务，链上做资产托管与最终结算</b>。
+          去中心化交易所（DEX）把撮合也放上链，代价是性能大幅下降，但换来了资产自持和抗审查。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 08 AMM -->
+      <section id="amm">
+        <div class="sec-head">
+          <span class="sec-num">08</span>
+          <h2>AMM <span class="cn">· 另一种定价方式</span></h2>
+        </div>
+
+        <p class="lead">
+          订单簿需要有人挂单。去中心化交易所面对的问题是：链上无法承受高频挂撤单。
+          自动做市商（AMM）绕开了订单簿 —— <b>用一条数学公式自动给出报价。</b>
+        </p>
+
+        <div class="callout" style="margin-top:30px">
+          <div class="callout-t">恒定乘积公式</div>
+          <p style="font-family:var(--mono);font-size:16px;color:var(--gold-200);text-align:center;padding:10px 0">x × y = k</p>
+          <p>x 和 y 是池子里两种代币的数量，k 是常数。有人买入代币 A，池中 A 减少、B 增加，为保持 k 不变，A 的价格自动上升。<b>价格完全由池内储备量决定。</b></p>
+        </div>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>对比项</th><th>订单簿（中心化）</th><th>AMM（去中心化）</th></tr></thead>
+            <tbody>
+              <tr><td>价格决定</td><td>买卖双方竞价</td><td class="gold">储备比例公式</td></tr>
+              <tr><td>成交速度</td><td>微秒级</td><td>依赖区块确认，秒~分钟</td></tr>
+              <tr><td>需要挂单方吗</td><td>需要做市商</td><td class="gold">不需要，任何人可提供流动性</td></tr>
+              <tr><td>资产托管</td><td>交易所托管</td><td class="gold">自己掌控私钥</td></tr>
+              <tr><td>主要风险</td><td>平台信用风险</td><td class="gold">智能合约漏洞、无常损失</td></tr>
+              <tr><td>适合场景</td><td>高频、大额、精细策略</td><td>长尾资产、无需许可交易</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn" style="margin-top:28px">
+          <div class="callout-t">无常损失</div>
+          <p>向 AMM 池子提供流动性会获得手续费分成，但当两种代币价格比例发生大幅偏离时，你在池中的资产价值会低于「当初直接持有」的价值。这部分差额叫无常损失，是 AMM 做市最主要的隐性成本。</p>
+        </div>
+
+        <div style="margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <a href="cashflow.html" class="btn ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 12H5M11 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            上一章 · 资金流路径
+          </a>
+          <a href="derivatives.html" class="btn">
+            下一章 · 期权与杠杆
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。站内数据均为模拟。</p>
+      <p>第四章 · 交易与撮合</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

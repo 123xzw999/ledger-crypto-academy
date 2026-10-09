@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第一章 · 区块链原理 — Ledger</title>
+<meta name="description" content="哈希函数、非对称加密、数字签名、Merkle 树、UTXO 与账户模型：拆解区块链赖以成立的密码学原语。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html" class="active">区块链原理</a>
+      <a href="evolution.html">演进与共识</a>
+      <a href="cashflow.html">资金流路径</a>
+      <a href="trading.html">交易与撮合</a>
+      <a href="derivatives.html">期权与杠杆</a>
+      <a href="build.html">平台开发</a>
+      <a href="glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>第一章</div>
+    <span class="sec-num">CHAPTER I</span>
+    <h1 class="display">Foundation</h1>
+    <p class="cn-serif" style="font-family:var(--serif-cn);font-size:clamp(24px,3.4vw,34px);color:var(--fg);margin-top:2px;font-weight:300">区块链原理 —— 五种密码学原语的组合</p>
+    <p class="lead">
+      区块链不是一个发明，而是一次组装。它把哈希函数、非对称加密、数字签名、默克尔树和分布式账本这五样几十年前就存在的东西，
+      用一种特定的方式咬合在一起，得到了一个此前从未有过的东西：一个不依赖任何中心权威、却能保证数据无法被悄悄篡改的账本。
+      这一章我们逐个拆开这五个零件，再说明它们是如何被装在一起的。
+    </p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:52px">
+  <div class="doc-layout">
+
+    <!-- ---------- 侧边目录 ---------- -->
+    <aside class="toc">
+      <div class="toc-t">本章目录</div>
+      <a href="#core">01 · 核心问题</a>
+      <a href="#hash">02 · 哈希函数</a>
+      <a href="#chain">03 · 哈希链 · 交互演示</a>
+      <a href="#asym">04 · 非对称加密</a>
+      <a href="#sign">05 · 数字签名与地址</a>
+      <a href="#merkle">06 · 默克尔树</a>
+      <a href="#model">07 · UTXO 与账户模型</a>
+      <a href="#tx">08 · 一笔交易的完整生命周期</a>
+    </aside>
+
+    <!-- ---------- 正文 ---------- -->
+    <main>
+
+      <!-- 01 核心问题 -->
+      <section id="core" style="padding-top:0">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2>先说清楚要解决什么问题</h2>
+        </div>
+        <p class="lead">
+          假设有十个互不信任的人，要共同维护一本账。没有银行、没有法院、没有任何一个大家都服气的权威。
+          传统做法是找一个中心机构来记账 —— 但问题立刻出现：如果这个中心偷偷改了账怎么办？如果中心挂了怎么办？
+          如果不喜欢这个中心、想换一个，账本怎么交接？
+        </p>
+        <p style="margin-top:20px">
+          区块链的回答很激进：<strong style="color:var(--fg-strong)">不用中心。让每个人都存一份完整的账本副本，用数学保证所有副本最终一致，且任何人都改不动历史。</strong>
+        </p>
+
+        <div class="grid g3" style="margin-top:34px">
+          <div class="card">
+            <h3 style="font-size:17px">问题一 · 防篡改</h3>
+            <p>怎么保证没人能偷偷修改一笔已经记账的交易？答案：<b>哈希链</b> —— 每个区块把上一块的指纹嵌进自己，改一处则其后全部失效。</p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:17px">问题二 · 防伪造</h3>
+            <p>怎么证明「这笔转账确实是我授权的」，且旁人无法伪造？答案：<b>数字签名</b> —— 只有私钥持有者能生成，任何人可用公钥验证。</p>
+          </div>
+          <div class="card">
+            <h3 style="font-size:17px">问题三 · 防重复</h3>
+            <p>怎么保证同一笔钱不会被花两次？答案：<b>全网共识 + 唯一账本</b> —— 所有节点按同一规则确认同一份交易顺序。</p>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:34px">
+          <div class="callout-t">关键认知</div>
+          <p>区块链解决的从来不是「存储」问题，而是<b>在缺乏信任的环境下，就「事件的先后顺序」达成一致</b>的问题。账本的本质是一串有顺序的记录；只要所有人对顺序没有异议，账目就唯一。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 02 哈希函数 -->
+      <section id="hash">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2>哈希函数 <span class="cn">· 数据的指纹</span></h2>
+        </div>
+        <figure>
+          <div class="ratio r-21-9"><img src="../assets/img/hashing-visual.jpg" alt="代码与数据指纹"></div>
+          <figcaption><b>哈希</b>把任意长度的输入压缩成固定长度的输出。输入改一个字符，输出面目全非 —— 这是全部防篡改能力的源头。</figcaption>
+        </figure>
+
+        <p class="lead">
+          哈希函数（Hash Function）是整座大厦的地基。它接收任意长度的数据，输出一个固定长度的字符串。
+          区块链里用的是<b>密码学哈希</b>，具备三个不可替代的性质。
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>性质</th><th>含义</th><th>为什么区块链需要它</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>确定性</b></td>
+                <td>相同输入永远得到相同输出（同一次哈希）</td>
+                <td>每个节点独立计算结果必然一致，无需互相信任</td>
+              </tr>
+              <tr>
+                <td><b>单向性</b></td>
+                <td>从哈希值无法反推出原文；只能暴力枚举</td>
+                <td>哈希值可以公开，原文不必暴露</td>
+              </tr>
+              <tr>
+                <td><b>雪崩效应</b></td>
+                <td>输入改 1 个比特，输出约有一半比特翻转</td>
+                <td>任何微小篡改都会留下无法掩盖的痕迹</td>
+              </tr>
+              <tr>
+                <td><b>抗碰撞</b></td>
+                <td>找不到两个不同输入产生同一输出</td>
+                <td>哈希值可以安全地当作数据的唯一标识符</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top:28px">
+          SHA-256 是最常用的一个：无论输入是「a」还是一个 4GB 的电影，输出都恰好是 256 位（32 字节），
+          通常写作 64 个十六进制字符。比特币的每一个区块、每一笔交易，都靠它来生成指纹。
+        </p>
+
+        <div class="callout">
+          <div class="callout-t">一个直觉演示</div>
+          <p style="font-family:var(--mono);font-size:13px;line-height:2">
+            SHA-256("hello") → <span style="color:var(--gold-200);word-break:break-all">2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824</span><br>
+            SHA-256("hellp") → <span style="color:var(--up);word-break:break-all">7f3b2c…（完全不一样）</span>
+          </p>
+          <p>只把 o 换成 p，输出没有一个字符是相同的。没有规律、无法预测、不可逆推 —— 这就是「指纹」的含义。</p>
+        </div>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-16-9"><img src="../assets/img/data-center.jpg" alt="数据中心与算力"></div>
+          <figcaption>哈希运算是纯计算、无记忆的过程。全球矿工同时在数以百万计的机器上做同一件事：反复试数、算哈希、比对目标值。</figcaption>
+        </figure>
+
+        <div class="img-cap-row">
+          <figure>
+            <div class="ratio r-4-3"><img src="../assets/img/ledger-report.jpg" alt="账本与报表"></div>
+            <figcaption>账本的本质：一串有顺序的记录。</figcaption>
+          </figure>
+          <figure>
+            <div class="ratio r-4-3"><img src="../assets/img/chart-btc.jpg" alt="比特币价格走势"></div>
+            <figcaption>链上数据的价值最终体现在市场对它的一致认同上。</figcaption>
+          </figure>
+          <figure>
+            <div class="ratio r-4-3"><img src="../assets/img/screen-chart.jpg" alt="行情分析屏"></div>
+            <figcaption>不可篡改的记录，让历史价格成为可信的公共事实。</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 03 哈希链交互 -->
+      <section id="chain">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2>哈希链 <span class="cn">· 亲手篡改一次账本</span></h2>
+          <p>这是本站第一个交互演示。下面是一条四区块的链。你可以在区块 1、2、3 里直接修改交易内容，观察哈希与链状态如何连锁反应。</p>
+        </div>
+
+        <div class="hashlab" id="chainLab">
+          <div class="hashlab-head">
+            <h4>哈希链仿真器</h4>
+            <div style="display:flex;gap:8px">
+              <button class="btn ghost" style="padding:8px 16px;font-size:12.5px" data-chain-act="tamper">模拟黑客篡改区块 #1</button>
+              <button class="btn ghost" style="padding:8px 16px;font-size:12.5px" data-chain-act="restore">恢复原始内容</button>
+            </div>
+          </div>
+          <div class="hashlab-body">
+            <div class="chain-body"></div>
+            <div class="chain-status" style="margin-top:18px;padding:14px 18px;border-radius:3px;font-size:13.5px;border:1px solid var(--line)"></div>
+            <style>
+              .chain-status.ok { border-color:rgba(46,168,122,.32); background:var(--down-soft); color:#7fd4b0; }
+              .chain-status.down { border-color:rgba(229,83,75,.32); background:var(--up-soft); color:#f09a94; }
+            </style>
+          </div>
+        </div>
+
+        <p style="margin-top:26px">
+          试着做几件事：把区块 #1 里的「Alice → Bob」改成「Alice → 攻击者」；或者只把一个数字从 1.50 改成 1.51。
+          <b>不管改动多小，区块 #1 的哈希都会彻底改变，而区块 #2 里记录的「上一区块哈希」随即对不上 —— 链在这里断了。</b>
+        </p>
+        <p style="margin-top:16px">
+          想修复？攻击者必须重新计算区块 #1 的哈希，然后重算 #2（因为 #2 引用了 #1 的新哈希），再重算 #3。
+          算力成本随链长指数上升。在真实网络中，他还必须在算力竞速中超过全网诚实节点，这就是工作量证明的护城河。
+        </p>
+
+        <div class="callout warn">
+          <div class="callout-t">注意</div>
+          <p>本演示使用的是浏览器端实现的<b>简化哈希</b>（非密码学安全），目的是让你直观看到「前块哈希嵌在后块里」这一结构的效果。真实区块链使用 SHA-256 或 Keccak-256，输出 64 位十六进制，且含有大量前导零。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 04 非对称加密 -->
+      <section id="asym">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2>非对称加密 <span class="cn">· 一把能公开的钥匙</span></h2>
+        </div>
+
+        <p class="lead">
+          对称加密只有一把钥匙，加解密都用它 —— 问题是这把钥匙怎么安全地交给对方。
+          非对称加密做了件反直觉的事：<b>生成一对数学上相关、但无法互相推导的密钥。</b>公钥可以随便公开，私钥必须自己藏好。
+        </p>
+
+        <div class="two-col" style="margin-top:36px">
+          <div>
+            <h3 style="font-size:19px;margin-bottom:16px">椭圆曲线密码（ECDSA / secp256k1）</h3>
+            <p style="color:var(--fg-muted);font-size:14.5px">
+              比特币和以太坊都选用 secp256k1 曲线。私钥是一个 256 位随机数（可以理解为一个极大的整数），
+              公钥则由私钥通过椭圆曲线上的标量乘法算出。这个运算正向很快，反向（求离散对数）在现有算力下不可行。
+            </p>
+            <ul class="list-clean" style="margin-top:20px">
+              <li><strong>私钥</strong> · 256 位随机数，决定一切控制权。泄露 = 资产丢失，无任何找回机制</li>
+              <li><strong>公钥</strong> · 由私钥单向推导得出，可安全公开</li>
+              <li><strong>地址</strong> · 公钥经哈希运算再编码而成，是收款用的公开标识</li>
+            </ul>
+          </div>
+          <div>
+            <figure style="margin-top:0">
+              <div class="ratio r-4-3"><img src="../assets/img/hardware-wallet.jpg" alt="硬件钱包"></div>
+              <figcaption>硬件钱包的作用：让私钥永远不接触联网设备。签名在设备内完成，只有签名结果返回电脑。</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" style="margin-top:34px">
+          <table>
+            <thead><tr><th>用途</th><th>用哪把钥匙</th><th>场景</th></tr></thead>
+            <tbody>
+              <tr><td>加密消息给某人</td><td class="mono">对方的公钥加密 → 对方私钥解密</td><td>只让指定的人读到内容</td></tr>
+              <tr><td><b>数字签名</b></td><td class="mono">自己的私钥签名 → 任何人用公钥验证</td><td>证明「这笔交易确由我授权」</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout" style="margin-top:28px">
+          <div class="callout-t">方向很容易记反</div>
+          <p>加密：用<b>对方</b>的公钥锁上，只有他的私钥能开。签名：用<b>自己</b>的私钥盖章，所有人都能用你的公钥验章。前者保证机密，后者保证归属。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 05 数字签名与地址 -->
+      <section id="sign">
+        <div class="sec-head">
+          <span class="sec-num">05</span>
+          <h2>数字签名与地址生成</h2>
+        </div>
+
+        <p class="lead">
+          一笔转账在技术上就是一段数据：<span class="mono" style="color:var(--gold-200)">「从地址 A 转 1.5 BTC 到地址 B，手续费 0.0001」</span>。
+          签名就是把这段数据用私钥处理一遍，生成一段旁人无法伪造的凭证。
+        </p>
+
+        <div class="steps" style="margin-top:34px">
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>构造交易内容</h4>
+              <p>包含输入（钱从哪来）、输出（钱到哪去）、金额、手续费、序号。这一步任何人都能做。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>对交易内容取哈希</h4>
+              <p>得到一段固定长度的摘要。签名实际上签的是这个摘要，而不是原文 —— 效率考虑。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>用私钥对摘要签名</h4>
+              <p>生成签名值（r, s）。这个过程不可逆，没有私钥就无法生成有效签名。<code>此步在钱包本地或硬件设备内完成</code></p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>广播到全网</h4>
+              <p>交易原文 + 签名 + 公钥一起发出去。节点用公钥验证签名；验签通过，说明这笔交易确实由对应私钥持有者授权。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>地址的生成</h4>
+              <p>公钥 → SHA-256 → RIPEMD-160 → Base58Check 编码 → 地址。中间多了两道哈希，是额外的一层防护。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout danger" style="margin-top:34px">
+          <div class="callout-t">不可逆性</div>
+          <p>区块链没有「忘记密码」功能，也没有客服可以帮你回滚。私钥丢失即资产永久锁定，私钥泄露即资产随时可被转走。
+          「不是你的钥匙，就不是你的币」（Not your keys, not your coins）说的就是这件事。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 06 默克尔树 -->
+      <section id="merkle">
+        <div class="sec-head">
+          <span class="sec-num">06</span>
+          <h2>默克尔树 <span class="cn">· 让一万人里的一笔交易可被证明</span></h2>
+        </div>
+
+        <p class="lead">
+          一个区块里可能装几千笔交易。如果要把它们全部哈希进区块头，数据量太大。
+          默克尔树（Merkle Tree）把这几千笔交易两两配对、逐层向上哈希，最终得到一个根哈希。
+          <b>区块头里只存这一个 32 字节的根，就能代表区块内所有交易的完整性。</b>
+        </p>
+
+        <div class="callout info" style="margin-top:28px">
+          <div class="callout-t">它带来的关键能力</div>
+          <p>轻节点只需下载区块头（80 字节），就能验证「某笔交易是否被包含在这个区块里」—— 而不必下载全部交易。证明路径的长度只有 log₂(交易数)，几千笔交易也只需十几次哈希运算。</p>
+        </div>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>层级</th><th>内容</th><th>数量（假设 8 笔交易）</th></tr></thead>
+            <tbody>
+              <tr><td>叶节点</td><td>每笔交易各自的哈希</td><td class="num">8</td></tr>
+              <tr><td>第 1 层</td><td>相邻两个叶哈希拼接后再哈希</td><td class="num">4</td></tr>
+              <tr><td>第 2 层</td><td>再次两两合并</td><td class="num">2</td></tr>
+              <tr><td>根</td><td>最后合并得到 Merkle Root</td><td class="num">1</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top:26px">
+          好处很直接：<b>要证明第 3 笔交易在区块里，只需提供它到根路径上的 3 个兄弟哈希</b>（而不是全部 8 笔）。
+          交易数翻倍，证明路径只多一步。
+        </p>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 07 UTXO 与账户模型 -->
+      <section id="model">
+        <div class="sec-head">
+          <span class="sec-num">07</span>
+          <h2>两种记账模型 <span class="cn">· UTXO 与账户余额</span></h2>
+        </div>
+
+        <p class="lead">
+          「我有多少币」这件事，在不同链上有两种截然不同的表达方式。理解这个差异，是理解交易构造、手续费计算与隐私特性的前提。
+        </p>
+
+        <div class="tabs" data-tabs style="margin-top:34px">
+          <div class="tab-bar">
+            <button class="on">UTXO 模型（比特币）</button>
+            <button>账户模型（以太坊）</button>
+          </div>
+          <div class="tab-panel on">
+            <div class="two-col">
+              <div>
+                <h3 style="font-size:18px;margin-bottom:14px">未花费交易输出</h3>
+                <p style="color:var(--fg-muted);font-size:14.5px">
+                  没有「余额」这个变量。钱包里的钱是若干个「未花费的输出」的集合，像一把不同面额的现金。
+                  花的时候要整张递出去，找零再回来。
+                </p>
+                <ul class="list-clean" style="margin-top:18px">
+                  <li><strong>正面</strong> · 并行验证容易，无需维护全局状态，隐私性相对更好</li>
+                  <li><strong>负面</strong> · 钱包逻辑复杂，找零机制易出错，天然不支持智能合约</li>
+                </ul>
+              </div>
+              <div>
+                <pre style="margin:0">你收到过三笔：
+  ① 0.4 BTC  （未花费）
+  ② 1.2 BTC  （未花费）
+  ③ 0.9 BTC  （未花费）
+
+  合计 2.5 BTC，但账上没有"2.5"
+
+──────── 现在要转 1.5 BTC ────────
+
+输入：
+  ② 1.2 BTC   ← 整张花掉
+  ① 0.4 BTC   ← 整张花掉
+  合计 1.6 BTC
+
+输出：
+  → 收款方  1.5 BTC
+  → 找零回自己 0.0999 BTC
+  → 矿工费   0.0001 BTC
+
+（③ 未动，继续躺在钱包里）</pre>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel">
+            <div class="two-col">
+              <div>
+                <h3 style="font-size:18px;margin-bottom:14px">全局状态 + 余额</h3>
+                <p style="color:var(--fg-muted);font-size:14.5px">
+                  更像银行账户。每条记录是「某地址当前有多少币」，再加一个 nonce 计数器防止重放。
+                  转账就是减少一方、增加另一方。
+                </p>
+                <ul class="list-clean" style="margin-top:18px">
+                  <li><strong>正面</strong> · 直观易懂，状态查询高效，原生支持智能合约（合约也只是一个账户）</li>
+                  <li><strong>负面</strong> · 全局状态膨胀，交易并行处理困难，顺序依赖强</li>
+                </ul>
+              </div>
+              <div>
+                <pre style="margin:0">状态是一张表（世界状态）：
+
+ 0x7a3f…  余额 2.5 ETH   nonce 47
+ 0x11bc…  余额 0.8 ETH   nonce 12
+ 0x9de4…  余额 15.2 ETH  nonce 203
+
+──────── 转账 1.5 ETH ────────
+
+交易载荷：
+  from   0x7a3f…
+  to     0x11bc…
+  value  1.5 ETH
+  nonce  47        ← 必须等于当前值
+  gas    21000
+
+执行后：
+  0x7a3f…  余额 1.0 ETH   nonce 48
+  0x11bc…  余额 2.3 ETH
+
+（nonce 递增，同一笔交易无法重复提交）</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 08 交易生命周期 -->
+      <section id="tx">
+        <div class="sec-head">
+          <span class="sec-num">08</span>
+          <h2>一笔交易的完整生命周期</h2>
+          <p>把前面八个部分串起来：从你在钱包里点下「发送」，到这笔交易被全网确认不可回滚，中间发生了什么。</p>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>签名并广播</h4>
+              <p>钱包本地用私钥签名，把交易发到相邻节点。此时交易进入内存池（Mempool），状态为「未确认」。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>进入内存池排队</h4>
+              <p>所有未确认交易暂存在这里，按手续费率排序。费率给得低，可能几小时不被处理 —— 费率本质上是对有限区块空间的竞价。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>矿工/验证者挑选打包</h4>
+              <p>从内存池里挑出最划算的一批交易，组装成候选区块，同时计算默克尔根。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>共识竞争</h4>
+              <p>PoW 靠算力找满足条件的 nonce；PoS 靠质押权重选出出块者。胜出者的区块被广播给全网。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>其他节点验证并接链</h4>
+              <p>每个节点独立检查：签名有效吗？钱够吗？有没有重复花费？全部通过，才把这个区块接到自己本地的链上。一处不符，直接丢弃。</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>等待确认数</h4>
+              <p>区块后面每多一个块，回滚成本就高一档。交易所通常要求 3~6 个确认才给入账，大额甚至会等到 12 个以上。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:36px">
+          <div class="callout-t">为什么这很重要</div>
+          <p>理解了这个流程，你就能明白后面章节里的几个现象：为什么交易所充币会有「确认中」的等待、为什么网络拥堵时手续费会飙到几十美元、为什么「双花攻击」在确认数足够后几乎不可能成功。</p>
+        </div>
+
+        <figure style="margin-top:36px">
+          <div class="ratio r-16-9"><img src="../assets/img/server-room.jpg" alt="网络节点"></div>
+          <figcaption>全球上万个节点各自保存一份完整账本副本，独立验证每一笔交易。没有一个节点是必需的，也没有一个节点能说了算。</figcaption>
+        </figure>
+
+        <!-- 导航 -->
+        <div style="margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <a href="../index.html" class="btn ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 12H5M11 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            返回首页
+          </a>
+          <a href="evolution.html" class="btn">
+            下一章 · 演进与共识
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。站内数据均为模拟。</p>
+      <p>第一章 · 区块链原理</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>

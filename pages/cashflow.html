@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第三章 · 资金流路径 — Ledger</title>
+<meta name="description" content="法币如何一步步变成链上资产：入金通道、稳定币铸造、做市报价、现货成交、衍生品保证金。看清每一层谁在收钱。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+
+<div class="progress"></div>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a href="../index.html" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#d4b478" stroke-width="1.4">
+          <rect x="3" y="7" width="7" height="10" rx="1"/><rect x="14" y="7" width="7" height="10" rx="1"/>
+          <path d="M10 12h4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><span class="brand-en">Ledger</span><span class="brand-cn">链上账本</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html">首页</a>
+      <a href="foundation.html">区块链原理</a>
+      <a href="evolution.html">演进与共识</a>
+      <a href="cashflow.html" class="active">资金流路径</a>
+      <a href="trading.html">交易与撮合</a>
+      <a href="derivatives.html">期权与杠杆</a>
+      <a href="build.html">平台开发</a>
+      <a href="glossary.html" class="nav-cta">术语表</a>
+    </div>
+    <button class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="../index.html">首页</a><span>/</span>第三章</div>
+    <span class="sec-num">CHAPTER III</span>
+    <h1 class="display">Cash Flow</h1>
+    <p style="font-family:var(--serif-cn);font-size:clamp(24px,3.4vw,34px);color:var(--fg);margin-top:2px;font-weight:300">资金流路径 —— 真金白银是怎么流入虚拟币的</p>
+    <p class="lead">
+      这是最实际的一章。链上那些动辄几十亿美元的市值，钱到底从哪来的？
+      本章追一条完整链路：从你银行卡里的 10 万元人民币，到交易所账户里的 USDT，再到链上的一笔持仓。
+      每一层都追问三个问题：<b>钱从哪来、经过谁手、被抽走多少。</b>
+    </p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:52px">
+  <div class="doc-layout">
+
+    <aside class="toc">
+      <div class="toc-t">本章目录</div>
+      <a href="#truth">01 · 先破除一个误解</a>
+      <a href="#path">02 · 六层资金链路</a>
+      <a href="#flow">03 · 资金流模拟器 · 交互</a>
+      <a href="#ramp">04 · 入金通道</a>
+      <a href="#stable">05 · 稳定币：真正的闸门</a>
+      <a href="#value">06 · 市值是怎么算出来的</a>
+      <a href="#who">07 · 谁在赚这个钱</a>
+    </aside>
+
+    <main>
+
+      <!-- 01 -->
+      <section id="truth" style="padding-top:0">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2>先破除一个误解</h2>
+        </div>
+        <p class="lead">
+          很多人的困惑是：「币圈的钱从哪来？是不是凭空变出来的？」
+        </p>
+        <p style="margin-top:20px">
+          答案分两层，必须分开说清楚：
+        </p>
+
+        <div class="grid g2" style="margin-top:30px">
+          <div class="card gold-top">
+            <span class="tag gold">第一层 · 增量资金</span>
+            <h3 style="margin-top:14px;font-size:18px">真正从外部进来的钱</h3>
+            <p>法币通过银行、支付通道换成稳定币或直接买入币。这部分是<b>净流入</b>，会真实推高整个市场的总市值。规模受制于监管通道、银行合作意愿和资本管制。</p>
+            <p style="margin-top:14px;font-size:13.5px;color:var(--gold-300)">关键词：入金、电汇、稳定币增发、ETF 申购</p>
+          </div>
+          <div class="card gold-top">
+            <span class="tag gold">第二层 · 存量博弈</span>
+            <h3 style="margin-top:14px;font-size:18px">市场内部的钱在互相转移</h3>
+            <p>绝大多数「赚到的钱」，其实来自另一个参与者的亏损。杠杆交易尤其如此 —— 你的盈利是某个对手方的保证金。<b>这部分不增加市场总量，只在账户间流转。</b></p>
+            <p style="margin-top:14px;font-size:13.5px;color:var(--gold-300)">关键词：撮合成交、盈亏转移、资金费率、强平清算</p>
+          </div>
+        </div>
+
+        <div class="callout info" style="margin-top:30px">
+          <div class="callout-t">关键区别</div>
+          <p>「币价涨了」和「有新增资金进场」是两件事。价格上涨可以纯粹由存量资金推动 —— 只要买盘比卖盘更急，很小的成交量就能把价格推高，因为<b>边际定价</b>看的是最后一笔成交，而不是全部持仓的平均成本。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 02 六层链路 -->
+      <section id="path">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2>六层资金链路</h2>
+          <p>假设你要用 10 万元人民币买入比特币。这笔钱会依次穿过下面六层，每一层都有损耗。</p>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第一层 · 法币入金</h4>
+              <p>通过银行转账、第三方支付或境外电汇，把钱打进交易所的托管账户。这一层受监管最严，通常需要 KYC 实名认证、银行预留手机验证，跨境通道还可能受额度限制。</p>
+              <p style="margin-top:10px;font-size:13.5px;color:var(--gold-300)">损耗：0% ~ 3%（通道费 + 汇率点差 + 可能的场外报价溢价）</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第二层 · 换成稳定币</h4>
+              <p>人民币不能直接买大多数币。先换成 USDT 或 USDC 这类锚定美元的稳定币。稳定币由发行方（如 Tether）在链上铸造，理论上每发 1 枚背后有 1 美元资产。</p>
+              <p style="margin-top:10px;font-size:13.5px;color:var(--gold-300)">损耗：约 0.1% ~ 0.5%（OTC 报价价差）</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第三层 · 现货下单</h4>
+              <p>在交易所现货市场用 USDT 买 BTC。订单进入撮合引擎，与做市商或其他用户的卖单成交。这里产生了主要的手续费。</p>
+              <p style="margin-top:10px;font-size:13.5px;color:var(--gold-300)">损耗：约 0.1%（吃单费）+ 买卖价差 0.01%~0.05%</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第四层 · 资产划转</h4>
+              <p>成交后你拥有的是交易所账本上的一个数字（是「账户余额」，不是链上私钥）。若要转到自己的钱包，需要提币，支付链上 Gas 费。</p>
+              <p style="margin-top:10px;font-size:13.5px;color:var(--gold-300)">损耗：提币费（固定额，跨链桥另有费用 0.05%~0.3%）</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第五层 · 转入合约账户</h4>
+              <p>若要做杠杆交易，把 BTC 或 USDT 从现货账户划转到衍生品账户，成为保证金。这一步不涉及链上转账，只是交易所内部账本的一个会计科目变动。</p>
+              <p style="margin-top:10px;font-size:13.5px;color:var(--gold-300)">损耗：0（内部划转免费）</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-n"></div>
+            <div>
+              <h4>第六层 · 开仓与持仓成本</h4>
+              <p>用保证金开出数倍名义价值的仓位。持仓期间每 8 小时结算一次资金费率；下单有手续费；被强平有清算罚金。这些持续不断地从你的保证金里扣除。</p>
+              <p style="margin-top:10px;font-size:13.5px;color:var(--gold-300)">损耗：资金费率 0.01%/8h · 强平罚金最高可达保证金的 1%~2%</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 03 交互 -->
+      <section id="flow">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2>资金流模拟器 <span class="cn">· 拖动看看十万块钱剩多少</span></h2>
+          <p>拖动滑块调整入金金额，看这笔钱在六个环节中的留存变化。数值为典型场景下的示意估算。</p>
+        </div>
+
+        <div class="hashlab" id="flowLab">
+          <div class="hashlab-head">
+            <h4>资金链路仿真</h4>
+            <div style="display:flex;align-items:center;gap:14px">
+              <span class="tiny faint mono">入金金额</span>
+              <span class="gold mono" style="font-size:14px" data-flow-tf-label>100 万元</span>
+            </div>
+          </div>
+          <div class="hashlab-body">
+            <input type="range" class="calc-range" min="5" max="500" step="5" value="100" data-flow style="margin-bottom:26px">
+            <div class="flow-out"></div>
+          </div>
+        </div>
+
+        <div class="callout warn" style="margin-top:30px">
+          <div class="callout-t">请注意</div>
+          <p>上图展示的损耗比例是<b>单次操作</b>的量级。真正侵蚀本金的是<b>频率</b>——高频交易者一年下来付出的手续费，往往远超单次入金的成本。这也是为什么交易所的主要收入来源就是手续费。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 04 入金通道 -->
+      <section id="ramp">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2>入金通道 <span class="cn">· 法币与加密世界的接口</span></h2>
+        </div>
+
+        <figure>
+          <div class="ratio r-21-9"><img src="../assets/img/crypto-desk.jpg" alt="数字货币与终端"></div>
+          <figcaption>入金通道（Fiat On-ramp）是整个行业最受监管、也最脆弱的一环。技术从来不是瓶颈，银行是否愿意合作才是。</figcaption>
+        </figure>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>通道类型</th><th>运作方式</th><th>速度</th><th>典型成本</th><th>限制</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>银行电汇</b></td>
+                <td>直接转账至交易所/OTC 商户对公账户</td>
+                <td>数小时到 1 日</td>
+                <td class="mono">0.1%~1%</td>
+                <td>需实名，单笔额度受限</td>
+              </tr>
+              <tr>
+                <td><b>第三方支付</b></td>
+                <td>持牌支付机构代收代付</td>
+                <td>分钟级</td>
+                <td class="mono">0.5%~2%</td>
+                <td>额度小，风控严格</td>
+              </tr>
+              <tr>
+                <td><b>C2C / OTC 场外</b></td>
+                <td>平台撮合个人买家和卖家直接转账</td>
+                <td>分钟级</td>
+                <td class="mono">价差 0.3%~1.5%</td>
+                <td>价格随行就市，有对手方风险</td>
+              </tr>
+              <tr>
+                <td><b>信用卡 / 借记卡</b></td>
+                <td>卡组织通道购币</td>
+                <td>即时</td>
+                <td class="mono up">2%~5%</td>
+                <td>成本最高，部分银行直接拦截</td>
+              </tr>
+              <tr>
+                <td><b>境外券商 / ETF</b></td>
+                <td>通过合规投资产品间接持有</td>
+                <td>T+1</td>
+                <td class="mono">管理费 0.2%~1.5%/年</td>
+                <td>需证券账户，非链上资产</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger" style="margin-top:30px">
+          <div class="callout-t">必须知道的现实</div>
+          <p>在中国大陆，虚拟货币相关业务活动属于非法金融活动，境内不存在合法的交易平台与入金通道。任何声称「境内合法购币」的渠道都需高度警惕洗钱、诈骗与资金被冻结的风险。本节内容仅作技术机制层面的知识讲解。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 05 稳定币 -->
+      <section id="stable">
+        <div class="sec-head">
+          <span class="sec-num">05</span>
+          <h2>稳定币 <span class="cn">· 真正控制闸门的东西</span></h2>
+        </div>
+        <p class="lead">
+          如果要找一个指标来判断「有多少新钱进入币圈」，最直接的观察对象不是币价，而是<b>稳定币的总市值变化</b>。
+        </p>
+
+        <div class="grid g3" style="margin-top:32px">
+          <div class="card">
+            <span class="tag gold">法币抵押型</span>
+            <h3 style="margin-top:14px;font-size:17px">USDT / USDC</h3>
+            <p>发行方在银行或短期国债中持有等额储备，每铸 1 枚就在链上发行 1 枚。储备透明度是长期争议点。</p>
+            <p style="margin-top:12px;font-size:12.5px;color:var(--fg-faint)">增发 = 有新资金想进场买币</p>
+          </div>
+          <div class="card">
+            <span class="tag violet">加密超额抵押</span>
+            <h3 style="margin-top:14px;font-size:17px">DAI / sUSD</h3>
+            <p>用加密资产超额抵押生成，由智能合约管理。去中心化程度高，但在极端行情下可能触发连环清算。</p>
+            <p style="margin-top:12px;font-size:12.5px;color:var(--fg-faint)">不依赖中心发行方</p>
+          </div>
+          <div class="card">
+            <span class="tag info">算法型</span>
+            <h3 style="margin-top:14px;font-size:17px">已大规模失败的实验</h3>
+            <p>靠算法与套利机制维持锚定，没有足额储备。2022 年 UST 崩盘证明：<b>在挤兑面前，纯算法机制无法维持锚定。</b></p>
+            <p style="margin-top:12px;font-size:12.5px;color:var(--up)">风险极高，已有系统性崩盘先例</p>
+          </div>
+        </div>
+
+        <div class="callout" style="margin-top:32px">
+          <div class="callout-t">为什么资金流入要看稳定币</div>
+          <p>新买家进场时，必须先持有稳定币才能下单。所以 <b>USDT/USDC 市值的持续增长，往往领先于币价上涨</b>；反之，当稳定币市值持续收缩，说明资金在离场而非只是价格下跌。这被称为市场的「弹药库」。</p>
+        </div>
+
+        <figure style="margin-top:34px">
+          <div class="ratio r-16-9"><img src="../assets/img/gold-coin.jpg" alt="比特币与数字货币"></div>
+          <figcaption>稳定币在功能上相当于币圈的「美元现金」——它是结算媒介、报价单位，也是法币与加密资产之间唯一的通用接口。</figcaption>
+        </figure>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 06 市值 -->
+      <section id="value">
+        <div class="sec-head">
+          <span class="sec-num">06</span>
+          <h2>市值是怎么算出来的 <span class="cn">· 以及它为什么不可信</span></h2>
+        </div>
+
+        <div class="callout info" style="margin-top:8px">
+          <div class="callout-t">市值公式</div>
+          <p style="font-family:var(--mono);font-size:14px;color:var(--gold-200)">市值 = 当前价格 × 流通中的总数量</p>
+          <p>问题在于：<b>当前价格只是「最近一笔成交」的价格</b>，通常只涉及极小一部分筹码。</p>
+        </div>
+
+        <p style="margin-top:26px">
+          举个极端例子。假设某个币总量 1 亿枚，其中 99% 锁在创始团队手里，市场上只有 100 万枚在流通。
+          某个买家花 10 万美元把这 100 万枚从 0.1 美元拉到 1 美元。此时「市值」显示为 <b>1 亿美元</b>。
+          但如果创始人此刻想套现，市场上根本没有那么多接盘资金 —— <b>真实可实现的流动性可能不到 200 万美元。</b>
+        </p>
+
+        <div class="tbl-wrap" style="margin-top:30px">
+          <table>
+            <thead><tr><th>指标</th><th>算法</th><th>能看出什么</th></tr></thead>
+            <tbody>
+              <tr><td><b>市值 Market Cap</b></td><td class="mono">价格 × 流通量</td><td>市场认同的估值规模（易被低估流动性风险）</td></tr>
+              <tr><td><b>完全稀释估值 FDV</b></td><td class="mono">价格 × 总发行量</td><td>解锁全部代币后的估值，判断抛压的关键</td></tr>
+              <tr><td><b>24h 交易量</b></td><td class="mono">当日成交总额</td><td>流动性活跃度（刷量会严重虚高）</td></tr>
+              <tr><td><b>订单簿深度</b></td><td class="mono">买卖盘挂单总额</td><td class="gold">真实可承受的冲击成本，最实用的指标</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn" style="margin-top:28px">
+          <div class="callout-t">判读建议</div>
+          <p>看一个币，先比 <b>FDV / 市值</b> 的比值。如果 FDV 是市值的十倍以上，说明未来有大量代币等待解锁 —— 这些解锁量在抛售时会成为持续的压力来源。这个指标比价格本身重要得多。</p>
+        </div>
+      </section>
+
+      <hr class="divider-gold">
+
+      <!-- 07 谁在赚钱 -->
+      <section id="who">
+        <div class="sec-head">
+          <span class="sec-num">07</span>
+          <h2>这条链路上，谁在稳定赚钱</h2>
+          <p>价格涨跌不确定，但有几类参与者的收入是确定的 —— 他们赚的是「流量费」，不是方向。</p>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>角色</th><th>收入来源</th><th>是否承担价格风险</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>交易所</b></td>
+                <td>现货与合约手续费、提币费、上币费、杠杆利息</td>
+                <td class="down">基本不承担，收的是流量费</td>
+              </tr>
+              <tr>
+                <td><b>稳定币发行方</b></td>
+                <td>储备资产（短期国债）的利息收入</td>
+                <td class="down">不承担，接近无风险套利</td>
+              </tr>
+              <tr>
+                <td><b>做市商</b></td>
+                <td>买卖价差 + 交易所返佣 + 资金费率</td>
+                <td class="up">承担库存风险，靠对冲管理</td>
+              </tr>
+              <tr>
+                <td><b>矿工 / 验证者</b></td>
+                <td>区块奖励 + 手续费</td>
+                <td class="up">承担币价与设备折旧风险</td>
+              </tr>
+              <tr>
+                <td><b>资金通道方</b></td>
+                <td>汇兑点差、通道服务费</td>
+                <td class="down">不承担，赚通道溢价</td>
+              </tr>
+              <tr>
+                <td><b>散户</b></td>
+                <td class="up">不确定</td>
+                <td class="up">承担全部方向风险，且持续支付上述所有费用</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger" style="margin-top:30px">
+          <div class="callout-t">这解释了大部分人的持续亏损</div>
+          <p>散户面对的是一个<b>负和游戏</b>：每笔交易都要付手续费，每次持仓都要付资金费率。<b>即使胜率是 50%，长期期望值仍然为负。</b>唯一的变量是你能否在扣掉这些成本后，仍然保持正收益 —— 这也是为什么绝大多数高频交易者的最终结果是亏损。</p>
+        </div>
+
+        <div style="margin-top:56px;padding-top:32px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <a href="evolution.html" class="btn ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 12H5M11 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            上一章 · 演进与共识
+          </a>
+          <a href="trading.html" class="btn">
+            下一章 · 交易与撮合
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-bot" style="border-top:0;padding-top:0">
+      <p>Ledger · 链上账本 —— 教学内容，非投资建议。站内数据均为模拟。</p>
+      <p>第三章 · 资金流路径</p>
+    </div>
+  </div>
+</footer>
+
+<script src="../assets/js/app.js"></script>
+</body>
+</html>
